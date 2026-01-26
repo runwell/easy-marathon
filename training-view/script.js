@@ -213,8 +213,13 @@ function showActivityStatus(count, startDate, endDate, debug = null) {
                 <p><strong>Credential Keys:</strong> ${sd.credentialKeys?.join(', ') || 'none'}</p>
                 ${sd.error ? `<p style="color: #f87171;"><strong>Error:</strong> ${sd.error}</p>` : ''}
                 ${sd.htmlPreview ? `<p><strong>HTML Response (session expired?):</strong></p><pre>${escapeHtml(sd.htmlPreview)}</pre>` : ''}
-                <p><strong>Steps:</strong></p>
+                <p><strong>Activity Fetch Steps:</strong></p>
                 <pre>${JSON.stringify(sd.steps, null, 2)}</pre>
+                ${sd.authDebug ? `
+                    <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">
+                    <p><strong>Login/Auth Debug (from when you signed in):</strong></p>
+                    <pre>${JSON.stringify(sd.authDebug, null, 2)}</pre>
+                ` : ''}
             `;
         }
 

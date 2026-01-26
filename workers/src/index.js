@@ -228,7 +228,7 @@ async function handleGetActivities(request, env) {
 
     try {
         const sessionData = JSON.parse(atob(token));
-        const {platform, credentials} = sessionData;
+        const {platform, credentials, authDebug} = sessionData;
 
         const PlatformClass = PLATFORMS[platform];
         if (!PlatformClass) {
@@ -246,7 +246,10 @@ async function handleGetActivities(request, env) {
                 activities: result.activities || result,
                 startDate,
                 endDate,
-                debug: result.debug
+                debug: {
+                    ...result.debug,
+                    authDebug: authDebug || 'not stored in session'
+                }
             }, 200, env);
         }
 

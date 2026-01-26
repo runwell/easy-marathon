@@ -34,21 +34,44 @@ export class GarminPlatform {
             throw new Error('Email and password are required');
         }
 
+        // Reset cookies for fresh login
+        this.cookies = new Map();
+        this.authDebug = [];
+
+        const logAuth = (step, data) => {
+            this.authDebug.push({step, data, time: new Date().toISOString()});
+            console.log(`[AUTH ${step}]`, JSON.stringify(data).substring(0, 500));
+        };
+
         try {
             // Step 1: Get CSRF token and cookies from SSO
-            console.log('Step 1: Getting CSRF token...');
+            logAuth('csrf-start', {});
             const csrfData = await this.getCSRFToken();
-            console.log('CSRF token obtained');
+            logAuth('csrf-done', {tokenLength: csrfData.csrf?.length, cookieCount: this.cookies.size});
 
             // Step 2: Submit login form
-            console.log('Step 2: Submitting login...');
+            logAuth('login-start', {email: email.substring(0, 3) + '***'});
             const loginResult = await this.submitLogin(email, password, csrfData);
-            console.log('Login submitted, ticket:', loginResult.ticket ? 'obtained' : 'missing');
+            logAuth('login-done', {
+                hasTicket: !!loginResult.ticket,
+                ticketPreview: loginResult.ticket?.substring(0, 20)
+            });
 
             // Step 3: Exchange ticket for session
-            console.log('Step 3: Exchanging ticket...');
+            logAuth('exchange-start', {cookieCount: this.cookies.size});
             const session = await this.exchangeTicket(loginResult.ticket);
-            console.log('Session obtained');
+            logAuth('exchange-done', {
+                hasOAuth1: !!session.oauth1,
+                hasOAuth2: !!session.oauth2,
+                cookieNames: Object.keys(session.allCookies || {}),
+                cookieCount: Object.keys(session.allCookies || {}).length
+            });
+
+            // Log final state
+            logAuth('final', {
+                cookiesInMap: [...this.cookies.keys()],
+                allCookiesStored: Object.keys(session.allCookies || {})
+            });
 
             // Create session token (base64 encoded for transport)
             const sessionToken = btoa(JSON.stringify({
@@ -58,6 +81,7 @@ export class GarminPlatform {
                     oauth2: session.oauth2,
                     cookies: session.allCookies
                 },
+                authDebug: this.authDebug, // Include debug info in session for troubleshooting
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
             }));
 
@@ -69,6 +93,7 @@ export class GarminPlatform {
 
         } catch (error) {
             console.error('Garmin authentication error:', error.message, error.stack);
+            console.error('Auth debug:', JSON.stringify(this.authDebug));
             // Re-throw with the actual error message for better debugging
             if (error.message.includes('Invalid') || error.message.includes('credentials')) {
                 throw error;
@@ -320,6 +345,8 @@ export class GarminPlatform {
      * Exchange ticket for OAuth tokens
      */
     async exchangeTicket(ticket) {
+        console.log('Exchanging ticket, current cookies:', this.getCookieString().substring(0, 200));
+
         // Exchange ticket for session
         const response = await fetch(
             `${GarminPlatform.MODERN_URL}/?ticket=${ticket}`,
@@ -332,15 +359,26 @@ export class GarminPlatform {
             }
         );
 
+        console.log('Ticket exchange response status:', response.status);
+
+        // Log ALL headers to see what Garmin returns
+        const allHeaders = {};
+        response.headers.forEach((value, key) => {
+            allHeaders[key] = value;
+        });
+        console.log('Response headers:', JSON.stringify(allHeaders));
+
         // Parse cookies from response
-        this.parseSetCookies(response);
+        this.parseSetCookiesVerbose(response, 'ticket-exchange');
 
         // Follow redirects manually to collect all cookies
         let redirectUrl = response.headers.get('location');
         let maxRedirects = 5;
+        let redirectCount = 0;
 
         while (redirectUrl && maxRedirects > 0) {
-            console.log('Following redirect to:', redirectUrl);
+            redirectCount++;
+            console.log(`Redirect ${redirectCount} to:`, redirectUrl);
 
             // Handle relative URLs
             if (redirectUrl.startsWith('/')) {
@@ -356,7 +394,9 @@ export class GarminPlatform {
                 redirect: 'manual'
             });
 
-            this.parseSetCookies(redirectResponse);
+            console.log(`Redirect ${redirectCount} status:`, redirectResponse.status);
+            this.parseSetCookiesVerbose(redirectResponse, `redirect-${redirectCount}`);
+
             redirectUrl = redirectResponse.headers.get('location');
             maxRedirects--;
         }
@@ -365,26 +405,83 @@ export class GarminPlatform {
         const oauth1 = this.cookies.get('GARMIN-SSO-CUST-GUID');
         const oauth2 = this.cookies.get('SESSIONID');
 
-        // Collect all relevant cookies for future API calls
+        console.log('Final cookies in map:', [...this.cookies.keys()].join(', '));
+
+        // Collect ALL cookies for future API calls (not just Garmin ones)
         const allCookies = {};
         for (const [name, value] of this.cookies) {
-            if (name.includes('GARMIN') || name === 'SESSIONID' || name === 'JWT_FGP' || name === '__cflb') {
-                allCookies[name] = value;
-            }
+            allCookies[name] = value;
         }
 
-        console.log('Cookies collected:', Object.keys(allCookies).join(', '));
+        console.log('All cookies collected:', Object.keys(allCookies).join(', '));
 
-        if (!oauth1 && !oauth2 && Object.keys(allCookies).length === 0) {
-            throw new Error('Failed to obtain session cookies');
+        if (!oauth1 && !oauth2) {
+            console.log('WARNING: Missing GARMIN-SSO-CUST-GUID and SESSIONID');
+            console.log('Available cookies:', Object.keys(allCookies).join(', '));
         }
 
         return {
             oauth1,
             oauth2,
             allCookies,
-            displayName: null // Could be extracted from profile call
+            displayName: null
         };
+    }
+
+    /**
+     * Parse cookies with verbose logging
+     */
+    parseSetCookiesVerbose(response, context) {
+        console.log(`[${context}] Parsing cookies...`);
+
+        // Method 1: Try getSetCookie()
+        if (typeof response.headers.getSetCookie === 'function') {
+            const cookies = response.headers.getSetCookie();
+            console.log(`[${context}] getSetCookie() returned ${cookies.length} cookies`);
+            cookies.forEach((cookie, i) => {
+                console.log(`[${context}] Cookie ${i}: ${cookie.substring(0, 100)}`);
+                this.parseSingleCookie(cookie);
+            });
+        } else {
+            console.log(`[${context}] getSetCookie() not available`);
+        }
+
+        // Method 2: Try get('set-cookie')
+        const setCookieHeader = response.headers.get('set-cookie');
+        if (setCookieHeader) {
+            console.log(`[${context}] set-cookie header: ${setCookieHeader.substring(0, 200)}`);
+            // This usually only gets the first cookie
+            this.parseSingleCookie(setCookieHeader);
+        } else {
+            console.log(`[${context}] No set-cookie header found`);
+        }
+
+        // Method 3: Iterate all headers looking for cookies
+        response.headers.forEach((value, key) => {
+            if (key.toLowerCase() === 'set-cookie') {
+                console.log(`[${context}] Header iteration found: ${value.substring(0, 100)}`);
+            }
+        });
+    }
+
+    /**
+     * Parse a single cookie string
+     */
+    parseSingleCookie(cookieString) {
+        if (!cookieString) return;
+
+        // Handle multiple cookies separated by comma (but not in expires date)
+        const parts = cookieString.split(/,(?=\s*[^;,]+=)/);
+
+        for (const part of parts) {
+            const match = part.trim().match(/^([^=]+)=([^;]*)/);
+            if (match) {
+                const name = match[1].trim();
+                const value = match[2].trim();
+                console.log(`Storing cookie: ${name}=${value.substring(0, 30)}...`);
+                this.cookies.set(name, value);
+            }
+        }
     }
 
     /**
