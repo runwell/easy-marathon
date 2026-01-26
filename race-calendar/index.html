@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marathon Calendar Generator</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Luxon for Timezone handling -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="container">
+    <header>
+        <h1>Race Calendar Generator</h1>
+        <p>Plan your race day perfectly. Get your exclusive calendar invite.</p>
+    </header>
+
+    <main class="card">
+        <form id="generatorForm">
+            <div class="form-group">
+                <label for="raceName">Race Name</label>
+                <input type="text" id="raceName" placeholder="e.g. Tokyo Marathon" required>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label for="raceDate">Date</label>
+                    <input type="date" id="raceDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="raceTime">Start Time</label>
+                    <input type="time" id="raceTime" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="timeZone">Race Time Zone</label>
+                <select id="timeZone" required>
+                    <option value="" disabled selected>Select a timezone...</option>
+                    <!-- Major Timezones -->
+                    <option value="America/New_York">Eastern Time (New York)</option>
+                    <option value="America/Chicago">Central Time (Chicago)</option>
+                    <option value="America/Denver">Mountain Time (Denver)</option>
+                    <option value="America/Los_Angeles">Pacific Time (Los Angeles)</option>
+                    <option value="Europe/London">London</option>
+                    <option value="Europe/Paris">Paris</option>
+                    <option value="Europe/Berlin">Berlin</option>
+                    <option value="Asia/Tokyo">Tokyo</option>
+                    <option value="Asia/Shanghai">Shanghai</option>
+                    <option value="Australia/Sydney">Sydney</option>
+                    <!-- Add more as needed or use a JS library to populate, but keeping it simple for now -->
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Activity Type</label>
+                <div class="radio-group">
+                    <label class="radio-card">
+                        <input type="radio" name="activityType" value="watch" checked>
+                        <span class="radio-content">
+                                <span class="radio-title">Watch Race</span>
+                                <span class="radio-desc">2.5 Hours Duration</span>
+                            </span>
+                    </label>
+                    <label class="radio-card">
+                        <input type="radio" name="activityType" value="run">
+                        <span class="radio-content">
+                                <span class="radio-title">Run Race</span>
+                                <span class="radio-desc">3.5 Hours Duration</span>
+                            </span>
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="cta-button">
+                <span>Generate Calendar</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </button>
+        </form>
+    </main>
+
+    <footer style="margin-top: 40px; text-align: center; padding-bottom: 20px; color: #888; font-size: 12px;">
+        <p>Built for runners, by runners.</p>
+    </footer>
+</div>
+<script src="script.js"></script>
+</body>
+
+</html>

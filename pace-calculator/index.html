@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+          content="Running Pace Calculator - Calculate your running pace, time, or distance with ease">
+    <title>Running Pace Calculator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="app-container">
+    <header class="header">
+        <div class="logo">
+            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <h1>Pace Calculator</h1>
+        </div>
+        <p class="subtitle">Calculate your running pace, time, or distance</p>
+    </header>
+
+    <main class="main-content">
+        <!-- Calculation Mode Selector -->
+        <section class="mode-selector">
+            <h2>What do you want to calculate?</h2>
+            <div class="mode-buttons">
+                <button class="mode-btn active" data-mode="pace">
+                    <span class="mode-icon">⏱️</span>
+                    <span class="mode-label">Pace</span>
+                </button>
+                <button class="mode-btn" data-mode="time">
+                    <span class="mode-icon">🕐</span>
+                    <span class="mode-label">Time</span>
+                </button>
+                <button class="mode-btn" data-mode="distance">
+                    <span class="mode-icon">📏</span>
+                    <span class="mode-label">Distance</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Calculator Form -->
+        <section class="calculator-card">
+            <!-- Distance Input -->
+            <div class="input-group" id="distance-group">
+                <label class="input-label">Distance</label>
+                <div class="distance-selector">
+                    <div class="preset-distances">
+                        <button class="distance-btn" data-distance="5">5K</button>
+                        <button class="distance-btn" data-distance="10">10K</button>
+                        <button class="distance-btn" data-distance="21.0975">Half Marathon</button>
+                        <button class="distance-btn" data-distance="42.195">Marathon</button>
+                        <button class="distance-btn" data-distance="50">50K</button>
+                        <button class="distance-btn active" data-distance="custom">Custom</button>
+                    </div>
+                    <div class="custom-distance" id="custom-distance-input">
+                        <input type="number" id="distance-value" placeholder="Distance" min="0" step="0.01"
+                               value="">
+                        <select id="distance-unit">
+                            <option value="km">km</option>
+                            <option value="mi">miles</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Input -->
+            <div class="input-group" id="time-group">
+                <label class="input-label">Time</label>
+                <div class="time-inputs">
+                    <div class="time-field">
+                        <input type="number" id="hours" placeholder="0" min="0" max="99">
+                        <span class="time-label">hours</span>
+                    </div>
+                    <span class="time-separator">:</span>
+                    <div class="time-field">
+                        <input type="number" id="minutes" placeholder="0" min="0" max="59">
+                        <span class="time-label">minutes</span>
+                    </div>
+                    <span class="time-separator">:</span>
+                    <div class="time-field">
+                        <input type="number" id="seconds" placeholder="0" min="0" max="59">
+                        <span class="time-label">seconds</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pace Input -->
+            <div class="input-group hidden" id="pace-group">
+                <label class="input-label">Pace</label>
+                <div class="pace-inputs">
+                    <div class="pace-field">
+                        <input type="number" id="pace-minutes" placeholder="0" min="0" max="59">
+                        <span class="pace-label">min</span>
+                    </div>
+                    <span class="pace-separator">:</span>
+                    <div class="pace-field">
+                        <input type="number" id="pace-seconds" placeholder="0" min="0" max="59">
+                        <span class="pace-label">sec</span>
+                    </div>
+                    <div class="pace-field">
+                        <select id="pace-unit" class="pace-unit-select">
+                            <option value="mi">per mile</option>
+                            <option value="km">per km</option>
+                        </select>
+                        <span class="pace-label">&nbsp;</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calculate Button -->
+            <button class="calculate-btn" id="calculate-btn">
+                <span>Calculate</span>
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                    <polyline points="12 5 19 12 12 19"/>
+                </svg>
+            </button>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section hidden" id="results-section">
+            <h2 class="results-title">Your Results</h2>
+            <div class="results-grid" id="results-grid">
+                <!-- Results will be dynamically inserted here -->
+            </div>
+        </section>
+
+        <!-- Pace Chart -->
+        <section class="pace-chart-section hidden" id="pace-chart-section">
+            <h3 class="chart-title">Pace Breakdown</h3>
+            <div class="pace-chart" id="pace-chart">
+                <!-- Split times will be dynamically inserted here -->
+            </div>
+        </section>
+    </main>
+
+    <footer style="margin-top: 40px; text-align: center; padding-bottom: 20px; color: #888; font-size: 12px;">
+        <p>Built for runners, by runners.</p>
+    </footer>
+</div>
+
+<script src="script.js"></script>
+</body>
+
+</html>

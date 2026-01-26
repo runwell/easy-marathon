@@ -1,0 +1,19 @@
+# Cloudflare Workers configuration
+name = "easy-marathon-api"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# Account ID will be read from environment or wrangler login
+# account_id = "your-account-id"  # Optional: set via CLOUDFLARE_ACCOUNT_ID secret
+
+[vars]
+ALLOWED_ORIGIN = "https://runwell.github.io"
+
+# Development settings
+[dev]
+port = 8787
+local_protocol = "http"
+
+# Production environment (optional, for different settings)
+# [env.production]
+# vars = { ALLOWED_ORIGIN = "https://runwell.github.io" }

@@ -1,0 +1,15 @@
+{
+  "name": "easy-marathon-api",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers API for Easy Marathon training data",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

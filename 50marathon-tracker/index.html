@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>50 States Marathon Challenge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="container">
+    <header>
+        <h1>50 States Challenge</h1>
+        <p class="subtitle">Track your journey to run a marathon in every US state</p>
+        <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+            <button id="export-btn" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.5rem 1rem;">
+                Export Data
+            </button>
+            <label class="btn btn-outline" style="font-size: 0.8rem; padding: 0.5rem 1rem; cursor: pointer;">
+                Import Data
+                <input type="file" id="import-input" accept=".json" style="display: none;">
+            </label>
+            <button id="reset-btn" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.5rem 1rem;">
+                Reset Data
+            </button>
+        </div>
+    </header>
+
+    <section class="dashboard">
+        <div class="stat-card">
+            <div class="stat-value" id="completed-count">0</div>
+            <div class="stat-label">States Completed</div>
+            <div id="progress-bar-container">
+                <div id="progress-fill"></div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="planned-count">0</div>
+            <div class="stat-label">Races Planned</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="remaining-count">50</div>
+            <div class="stat-label">States Remaining</div>
+        </div>
+    </section>
+
+    <main class="states-grid" id="states-grid">
+        <!-- States will be populated here via JS -->
+    </main>
+
+    <footer style="margin-top: 40px; text-align: center; padding-bottom: 20px; color: #888; font-size: 12px;">
+        <p>Built for runners, by runners.</p>
+    </footer>
+</div>
+
+<!-- Modal for State Details -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modal-state-name">State Name</h2>
+            <button class="close-btn" id="close-modal">&times;</button>
+        </div>
+
+        <form id="marathon-form">
+            <div class="form-group">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    <option value="not started">Not Started</option>
+                    <option value="planned">Planned</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </div>
+
+            <div id="marathon-options" class="hidden">
+                <div class="form-group">
+                    <label>Marathon Options for this State</label>
+                    <div id="marathon-options-list" class="marathon-options-list">
+                        <!-- Marathon options will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <div id="race-details" class="hidden">
+                <div class="form-group">
+                    <label for="race-name">Race Name</label>
+                    <input type="text" id="race-name" name="raceName" placeholder="e.g. Boston Marathon">
+                </div>
+                <div class="form-group">
+                    <label for="race-date">Date</label>
+                    <input type="date" id="race-date" name="raceDate">
+                </div>
+                <div class="form-group" id="finish-time-group">
+                    <label for="finish-time">Finish Time</label>
+                    <input type="text" id="finish-time" name="finishTime" placeholder="HL:MM:SS">
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" name="notes" rows="3"
+                              placeholder="Race experience, travel notes..."></textarea>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-outline" id="cancel-btn">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="module" src="script.js"></script>
+</body>
+
+</html>

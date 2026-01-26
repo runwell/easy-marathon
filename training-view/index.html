@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Log</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="app-container">
+    <header>
+        <h1>Training Log</h1>
+        <div class="controls">
+            <!-- User menu will be inserted here by JS -->
+            <div id="user-menu-container"></div>
+
+            <div class="legend">
+                <div class="legend-item"><span class="dot run-dot"></span> Run</div>
+                <div class="legend-item"><span class="dot ride-dot"></span> Ride</div>
+                <div class="legend-item"><span class="dot weight-dot"></span> Strength</div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div id="visualizationContainer" class="calendar-grid">
+            <!-- Grid will be populated by JS -->
+        </div>
+    </main>
+
+    <footer style="margin-top: 40px; text-align: center; padding-bottom: 20px; color: #888; font-size: 12px;">
+        <p>Built for runners, by runners.</p>
+    </footer>
+</div>
+<script type="module" src="script.js?v=3"></script>
+</body>
+
+</html>
