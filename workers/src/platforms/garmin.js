@@ -71,9 +71,14 @@ export class GarminPlatform {
                 cookieCount: Object.keys(session.allCookies || {}).length
             });
 
-            // Log final state
+            // Log final state with more detail
+            const cookieDetails = {};
+            for (const [name, value] of this.cookies) {
+                cookieDetails[name] = value ? `has value (len:${value.length})` : 'EMPTY';
+            }
             logAuth('final', {
                 cookiesInMap: [...this.cookies.keys()],
+                cookieDetails: cookieDetails,
                 allCookiesStored: Object.keys(session.allCookies || {})
             });
 
@@ -129,11 +134,18 @@ export class GarminPlatform {
             }
         }
 
-        // Parse and store cookies
+        // Parse and store cookies - only store non-empty values
+        // Empty values usually mean "delete this cookie"
         for (const cookie of cookies) {
             const match = cookie.match(/^([^=]+)=([^;]*)/);
             if (match) {
-                this.cookies.set(match[1], match[2]);
+                const name = match[1].trim();
+                const value = match[2].trim();
+                // Only store if value is non-empty, OR update existing with new value
+                if (value && value.length > 0) {
+                    this.cookies.set(name, value);
+                }
+                // Don't overwrite existing cookies with empty values
             }
         }
 
@@ -427,15 +439,19 @@ export class GarminPlatform {
         console.log('  JWT_FGP:', jwtFgp ? `${jwtFgp.substring(0, 20)}... (len:${jwtFgp.length})` : 'MISSING');
         console.log('  JWT_WEB:', jwtWeb ? `${jwtWeb.substring(0, 20)}... (len:${jwtWeb.length})` : 'MISSING');
 
-        // Collect ALL cookies for future API calls
+        // Collect ALL cookies for future API calls - include even empty ones for debugging
         const allCookies = {};
+        const emptyCookies = [];
         for (const [name, value] of this.cookies) {
-            if (value) { // Only store non-empty cookies
+            if (value && value.length > 0) {
                 allCookies[name] = value;
+            } else {
+                emptyCookies.push(name);
             }
         }
 
-        console.log('All cookies with values:', Object.keys(allCookies).join(', '));
+        console.log('Cookies with values:', Object.keys(allCookies).join(', '));
+        console.log('Cookies with EMPTY values:', emptyCookies.join(', '));
 
         // Check if we have enough auth data
         const hasAuth = oauth1 || jwtFgp || jwtWeb || Object.keys(allCookies).length > 3;
@@ -463,8 +479,19 @@ export class GarminPlatform {
         if (typeof response.headers.getSetCookie === 'function') {
             const cookies = response.headers.getSetCookie();
             console.log(`[${context}] getSetCookie() returned ${cookies.length} cookies`);
+
+            // Log important Garmin cookies specifically
+            const garminCookies = cookies.filter(c =>
+                c.includes('GARMIN') || c.includes('JWT') || c.includes('SESSIONID')
+            );
+            if (garminCookies.length > 0) {
+                console.log(`[${context}] *** GARMIN COOKIES FOUND: ${garminCookies.length} ***`);
+                garminCookies.forEach((cookie, i) => {
+                    console.log(`[${context}] Garmin cookie ${i}: ${cookie.substring(0, 200)}`);
+                });
+            }
+
             cookies.forEach((cookie, i) => {
-                console.log(`[${context}] Raw cookie ${i}: ${cookie.substring(0, 150)}`);
                 this.parseSingleCookieVerbose(cookie, context);
             });
         } else {
@@ -494,12 +521,19 @@ export class GarminPlatform {
             const name = firstPart.substring(0, eqIndex).trim();
             const value = firstPart.substring(eqIndex + 1).trim();
 
+            // Log important cookies even if empty
+            const isImportant = name.includes('GARMIN') || name.includes('JWT') || name === 'SESSIONID' || name === 'SESSION';
+
+            if (isImportant) {
+                console.log(`[${context}] *** IMPORTANT COOKIE: ${name} = "${value}" (len: ${value.length}) ***`);
+            }
+
             // Skip empty values and some attributes that look like cookies
             if (value && name && !name.toLowerCase().startsWith('path') && !name.toLowerCase().startsWith('domain')) {
                 console.log(`[${context}] Storing: ${name} = ${value.substring(0, 50)}${value.length > 50 ? '...' : ''} (len: ${value.length})`);
                 this.cookies.set(name, value);
-            } else {
-                console.log(`[${context}] Skipping: ${name} (empty or attribute)`);
+            } else if (isImportant) {
+                console.log(`[${context}] WARNING: Important cookie ${name} has empty value - NOT storing`);
             }
         }
     }
