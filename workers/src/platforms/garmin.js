@@ -609,7 +609,8 @@ export class GarminPlatform {
             endDate: endDate
         });
 
-        const url = `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities/search/activities?${params}`;
+        // Try the modern proxy endpoint - this is what the Garmin Connect web app uses
+        const url = `${GarminPlatform.CONNECT_URL}/modern/proxy/activitylist-service/activities/search/activities?${params}`;
         addDebug('request', {url});
 
         const response = await fetch(url, {
@@ -618,7 +619,10 @@ export class GarminPlatform {
                 'Cookie': cookieString,
                 'NK': 'NT',
                 'Accept': 'application/json',
-                'Accept-Language': 'en-US,en;q=0.9'
+                'Accept-Language': 'en-US,en;q=0.9',
+                'DI-Backend': 'connectapi.garmin.com',
+                'Referer': 'https://connect.garmin.com/modern/activities',
+                'Origin': 'https://connect.garmin.com'
             }
         });
 
