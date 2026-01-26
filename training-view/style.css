@@ -691,10 +691,14 @@ footer {
     margin-bottom: 20px;
     color: var(--text-secondary);
     font-size: 14px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.activity-status .status-main {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
-    animation: fadeIn 0.3s ease-out;
 }
 
 .activity-status .status-icon {
@@ -709,4 +713,47 @@ footer {
 .activity-status .status-date {
     color: var(--text-muted);
     font-size: 12px;
+}
+
+.debug-toggle-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 4px 12px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: auto;
+    transition: all 0.2s;
+}
+
+.debug-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--text-primary);
+}
+
+.debug-info {
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.debug-info p {
+    margin-bottom: 6px;
+}
+
+.debug-info pre {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 150px;
+    overflow-y: auto;
 }

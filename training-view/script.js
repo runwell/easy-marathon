@@ -24,8 +24,10 @@ const RACES = {
     '2025-10-12': 'Chicago',
     '2025-11-08': 'Monumental',
     '2026-04-18': 'Carmel',
+    '2026-04-20': 'Boston',
     '2026-04-25': 'KDF',
     '2026-05-31': 'RnR SD',
+    '2026-10-11': 'Chicago',
     '2026-11-01': 'NYC'
 };
 
@@ -100,12 +102,13 @@ async function loadDataFromAPI() {
         const startDate = '2025-01-01';
         const endDate = `${new Date().getFullYear()}-12-31`;
 
-        const activities = await AuthService.fetchActivities(startDate, endDate);
+        // Use debug mode to get raw response
+        const result = await fetchActivitiesWithDebug(startDate, endDate);
 
-        // Show status message with activity count
-        showActivityStatus(activities.length, startDate, endDate);
+        // Show status message with activity count and debug info
+        showActivityStatus(result.activities.length, startDate, endDate, result.debug);
 
-        processAPIData(activities);
+        processAPIData(result.activities);
 
     } catch (error) {
         console.error('Failed to load activities:', error);
@@ -125,9 +128,66 @@ async function loadDataFromAPI() {
 }
 
 /**
+ * Fetch activities with debug information
+ */
+async function fetchActivitiesWithDebug(startDate, endDate) {
+    const session = AuthService.getSession();
+    if (!session?.token) {
+        throw new Error('Not logged in');
+    }
+
+    const params = new URLSearchParams();
+    params.set('startDate', startDate);
+    params.set('endDate', endDate);
+
+    const apiUrl = AuthService.getApiUrl();
+    const url = `${apiUrl}/api/activities?${params}`;
+
+    console.log('Fetching from:', url);
+
+    const response = await fetch(url, {
+        headers: {
+            'Authorization': `Bearer ${session.token}`
+        }
+    });
+
+    const responseText = await response.text();
+    console.log('Raw API response:', responseText.substring(0, 1000));
+
+    let data;
+    try {
+        data = JSON.parse(responseText);
+    } catch (e) {
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
+    }
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            AuthService.logout();
+            throw new Error('Session expired. Please login again.');
+        }
+        throw new Error(data.error || `API error: ${response.status}`);
+    }
+
+    // Build debug info
+    const debug = {
+        apiUrl: url,
+        status: response.status,
+        rawLength: responseText.length,
+        activityCount: data.activities?.length || 0,
+        sampleActivity: data.activities?.[0] ? JSON.stringify(data.activities[0]).substring(0, 300) : 'none'
+    };
+
+    return {
+        activities: data.activities || [],
+        debug
+    };
+}
+
+/**
  * Show status message with activity count
  */
-function showActivityStatus(count, startDate, endDate) {
+function showActivityStatus(count, startDate, endDate, debug = null) {
     // Remove existing status if any
     const existingStatus = document.getElementById('activity-status');
     if (existingStatus) existingStatus.remove();
@@ -138,10 +198,29 @@ function showActivityStatus(count, startDate, endDate) {
     const statusDiv = document.createElement('div');
     statusDiv.id = 'activity-status';
     statusDiv.className = 'activity-status';
+
+    let debugHtml = '';
+    if (debug) {
+        debugHtml = `
+            <button class="debug-toggle-btn" onclick="toggleDebugInfo()">Show Debug Info</button>
+            <div id="debug-info" class="debug-info" style="display: none;">
+                <p><strong>API URL:</strong> ${debug.apiUrl}</p>
+                <p><strong>Status:</strong> ${debug.status}</p>
+                <p><strong>Response size:</strong> ${debug.rawLength} bytes</p>
+                <p><strong>Activities in response:</strong> ${debug.activityCount}</p>
+                <p><strong>Sample activity:</strong></p>
+                <pre>${debug.sampleActivity}</pre>
+            </div>
+        `;
+    }
+
     statusDiv.innerHTML = `
-        <span class="status-icon">✓</span>
-        Loaded <strong>${count}</strong> activities from ${platformName} 
-        <span class="status-date">(${startDate} to ${endDate})</span>
+        <div class="status-main">
+            <span class="status-icon">${count > 0 ? '✓' : '⚠'}</span>
+            Loaded <strong>${count}</strong> activities from ${platformName} 
+            <span class="status-date">(${startDate} to ${endDate})</span>
+            ${debugHtml}
+        </div>
     `;
 
     // Insert after header
@@ -150,6 +229,23 @@ function showActivityStatus(count, startDate, endDate) {
         header.parentNode.insertBefore(statusDiv, header.nextSibling);
     }
 }
+
+/**
+ * Toggle debug info visibility
+ */
+window.toggleDebugInfo = function () {
+    const debugInfo = document.getElementById('debug-info');
+    const btn = document.querySelector('.debug-toggle-btn');
+    if (debugInfo) {
+        if (debugInfo.style.display === 'none') {
+            debugInfo.style.display = 'block';
+            btn.textContent = 'Hide Debug Info';
+        } else {
+            debugInfo.style.display = 'none';
+            btn.textContent = 'Show Debug Info';
+        }
+    }
+};
 
 /**
  * Show login prompt for unauthenticated users

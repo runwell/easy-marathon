@@ -422,6 +422,17 @@ export class GarminPlatform {
      * Fetch activities from Garmin Connect
      */
     async fetchActivities(credentials, startDate, endDate) {
+        console.log('Fetching activities with credentials keys:', Object.keys(credentials || {}));
+        console.log('Date range:', startDate, 'to', endDate);
+
+        // Build cookie string from credentials
+        const cookieString = this.buildCookieString(credentials);
+        console.log('Cookie string length:', cookieString.length);
+
+        if (!cookieString) {
+            throw new Error('No valid session cookies found');
+        }
+
         const params = new URLSearchParams({
             start: '0',
             limit: '1000',
@@ -429,40 +440,62 @@ export class GarminPlatform {
             endDate: endDate
         });
 
-        const response = await fetch(
-            `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities/search/activities?${params}`,
-            {
-                headers: this.getAuthHeaders(credentials)
+        const url = `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities/search/activities?${params}`;
+        console.log('Fetching from URL:', url);
+
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Cookie': cookieString,
+                'NK': 'NT',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9'
             }
-        );
+        });
+
+        console.log('Response status:', response.status);
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => '');
-            console.error('Activities fetch failed:', response.status, errorText.substring(0, 500));
+            console.error('Activities fetch failed:', response.status, errorText.substring(0, 1000));
             throw new Error(`Failed to fetch activities: HTTP ${response.status}`);
         }
 
-        const responseData = await response.json();
+        const responseText = await response.text();
+        console.log('Response length:', responseText.length);
+        console.log('Response preview:', responseText.substring(0, 500));
+
+        let responseData;
+        try {
+            responseData = JSON.parse(responseText);
+        } catch (e) {
+            console.error('Failed to parse JSON:', e.message);
+            throw new Error('Invalid JSON response from Garmin');
+        }
 
         // Handle different response formats from Garmin API
         let rawActivities;
         if (Array.isArray(responseData)) {
             // Direct array response
             rawActivities = responseData;
+            console.log('Response is direct array');
         } else if (responseData && Array.isArray(responseData.activityList)) {
             // Wrapped in activityList property
             rawActivities = responseData.activityList;
+            console.log('Found activities in activityList');
         } else if (responseData && Array.isArray(responseData.activities)) {
             // Wrapped in activities property
             rawActivities = responseData.activities;
+            console.log('Found activities in activities');
         } else if (responseData && typeof responseData === 'object') {
             // Try to find any array property
+            console.log('Response keys:', Object.keys(responseData));
             const arrayProp = Object.keys(responseData).find(key => Array.isArray(responseData[key]));
             if (arrayProp) {
                 console.log('Found activities in property:', arrayProp);
                 rawActivities = responseData[arrayProp];
             } else {
-                console.error('Unexpected response structure:', JSON.stringify(responseData).substring(0, 500));
+                console.error('Unexpected response structure:', JSON.stringify(responseData).substring(0, 1000));
                 rawActivities = [];
             }
         } else {
@@ -472,34 +505,57 @@ export class GarminPlatform {
 
         console.log(`Fetched ${rawActivities.length} raw activities`);
 
+        // Log first activity for debugging
+        if (rawActivities.length > 0) {
+            console.log('First activity sample:', JSON.stringify(rawActivities[0]).substring(0, 500));
+        }
+
         // Transform to normalized format
-        return this.normalizeActivities(rawActivities);
+        const normalized = this.normalizeActivities(rawActivities);
+        console.log(`Normalized to ${normalized.length} activities`);
+
+        return normalized;
+    }
+
+    /**
+     * Build cookie string from stored credentials
+     */
+    buildCookieString(credentials) {
+        const parts = [];
+
+        if (!credentials) {
+            console.error('No credentials provided');
+            return '';
+        }
+
+        // Add oauth1 and oauth2 if present
+        if (credentials.oauth1) {
+            parts.push(`GARMIN-SSO-CUST-GUID=${credentials.oauth1}`);
+        }
+        if (credentials.oauth2) {
+            parts.push(`SESSIONID=${credentials.oauth2}`);
+        }
+
+        // Add all cookies from the cookies object
+        if (credentials.cookies && typeof credentials.cookies === 'object') {
+            for (const [name, value] of Object.entries(credentials.cookies)) {
+                if (name !== 'GARMIN-SSO-CUST-GUID' && name !== 'SESSIONID' && value) {
+                    parts.push(`${name}=${value}`);
+                }
+            }
+        }
+
+        console.log('Built cookie parts:', parts.length);
+        return parts.join('; ');
     }
 
     /**
      * Get authentication headers for API requests
      */
     getAuthHeaders(credentials) {
-        const {oauth1, oauth2, cookies} = credentials;
-        const cookieParts = [];
-
-        // Add individual OAuth cookies
-        if (oauth1) cookieParts.push(`GARMIN-SSO-CUST-GUID=${oauth1}`);
-        if (oauth2) cookieParts.push(`SESSIONID=${oauth2}`);
-
-        // Add all stored cookies
-        if (cookies && typeof cookies === 'object') {
-            for (const [name, value] of Object.entries(cookies)) {
-                // Don't duplicate cookies we already added
-                if (name !== 'GARMIN-SSO-CUST-GUID' && name !== 'SESSIONID') {
-                    cookieParts.push(`${name}=${value}`);
-                }
-            }
-        }
-
         return {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Cookie': cookieParts.join('; '),
+            'Cookie': this.buildCookieString(credentials),
             'NK': 'NT', // Required header for Garmin API
             'Accept': 'application/json',
             'Accept-Language': 'en-US,en;q=0.9'
@@ -516,31 +572,48 @@ export class GarminPlatform {
             return [];
         }
 
+        // First, let's see what activity types we have
+        const activityTypes = rawActivities.map(a => {
+            return a?.activityType?.typeKey || a?.typeKey || a?.type || 'unknown';
+        });
+        const uniqueTypes = [...new Set(activityTypes)];
+        console.log('Activity types found:', uniqueTypes.join(', '));
+
         return rawActivities
             .filter(activity => {
                 if (!activity) return false;
                 const type = activity.activityType?.typeKey?.toLowerCase() ||
                     activity.typeKey?.toLowerCase() ||
                     activity.type?.toLowerCase() || '';
-                return type.includes('running') ||
+                // Include common activity types
+                const included = type.includes('running') ||
                     type.includes('cycling') ||
                     type.includes('strength') ||
                     type.includes('bike') ||
                     type.includes('ride') ||
-                    type.includes('walk');  // Include walking too
+                    type.includes('walk') ||
+                    type.includes('training') ||
+                    type.includes('cardio') ||
+                    type.includes('fitness') ||
+                    type.includes('other');
+
+                if (!included && type) {
+                    console.log('Excluding activity type:', type);
+                }
+                return included || type === ''; // Include if no type specified
             })
             .map(activity => ({
                 id: activity.activityId || activity.id,
                 platform: 'garmin',
                 type: this.mapActivityType(activity.activityType?.typeKey || activity.typeKey || activity.type),
-                startTime: activity.startTimeLocal || activity.startTime,
-                duration: activity.duration || 0,
+                startTime: activity.startTimeLocal || activity.startTime || activity.startTimeGMT,
+                duration: activity.duration || activity.elapsedDuration || activity.movingDuration || 0,
                 distance: activity.distance || 0,
-                calories: activity.calories || 0,
-                averageHR: activity.averageHR || activity.avgHr,
-                maxHR: activity.maxHR || activity.maxHr,
-                elevationGain: activity.elevationGain,
-                elevationLoss: activity.elevationLoss,
+                calories: activity.calories || activity.activeKilocalories || 0,
+                averageHR: activity.averageHR || activity.avgHr || activity.averageHeartRate,
+                maxHR: activity.maxHR || activity.maxHr || activity.maxHeartRate,
+                elevationGain: activity.elevationGain || activity.totalAscent,
+                elevationLoss: activity.elevationLoss || activity.totalDescent,
                 name: activity.activityName || activity.name
             }));
     }
