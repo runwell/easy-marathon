@@ -16,10 +16,14 @@ export class GarminPlatform {
     static CONNECT_URL = 'https://connect.garmin.com';
     static MODERN_URL = 'https://connect.garmin.com/modern';
     static SIGNIN_URL = 'https://sso.garmin.com/sso/signin';
+    static CONNECT_API_URL = 'https://connectapi.garmin.com';
+    static OAUTH_CONSUMER_URL = 'https://thegarth.s3.amazonaws.com/oauth_consumer.json';
+    static MOBILE_USER_AGENT = 'com.garmin.android.apps.connectmobile';
 
     constructor(env) {
         this.env = env;
         this.cookies = new Map();
+        this.oauthConsumer = null;
     }
 
     /**
@@ -71,6 +75,21 @@ export class GarminPlatform {
                 cookieCount: Object.keys(session.allCookies || {}).length
             });
 
+            // Step 4: Exchange ticket for OAuth tokens (used by connectapi)
+            let oauthTokens = null;
+            try {
+                logAuth('oauth-start', {});
+                oauthTokens = await this.getOAuthTokens(loginResult.ticket);
+                logAuth('oauth-done', {
+                    hasOauth1Token: !!oauthTokens?.oauth1?.oauth_token,
+                    hasOauth2AccessToken: !!oauthTokens?.oauth2?.access_token,
+                    tokenType: oauthTokens?.oauth2?.token_type,
+                    expiresIn: oauthTokens?.oauth2?.expires_in
+                });
+            } catch (oauthError) {
+                logAuth('oauth-error', {message: oauthError.message});
+            }
+
             // Log final state with more detail
             const cookieDetails = {};
             for (const [name, value] of this.cookies) {
@@ -88,6 +107,13 @@ export class GarminPlatform {
                 credentials: {
                     oauth1: session.oauth1,
                     oauth2: session.oauth2,
+                    oauth1Token: oauthTokens?.oauth1?.oauth_token,
+                    oauth1TokenSecret: oauthTokens?.oauth1?.oauth_token_secret,
+                    oauth1MfaToken: oauthTokens?.oauth1?.mfa_token,
+                    oauth2AccessToken: oauthTokens?.oauth2?.access_token,
+                    oauth2RefreshToken: oauthTokens?.oauth2?.refresh_token,
+                    oauth2ExpiresAt: oauthTokens?.oauth2?.expires_at,
+                    oauth2TokenType: oauthTokens?.oauth2?.token_type,
                     jwtFgp: session.jwtFgp,
                     jwtWeb: session.jwtWeb,
                     cookies: session.allCookies
@@ -470,6 +496,188 @@ export class GarminPlatform {
     }
 
     /**
+     * Fetch Garmin OAuth consumer key/secret
+     */
+    async getOAuthConsumer() {
+        if (this.oauthConsumer) return this.oauthConsumer;
+
+        const response = await fetch(GarminPlatform.OAUTH_CONSUMER_URL, {
+            headers: {
+                'User-Agent': GarminPlatform.MOBILE_USER_AGENT
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch OAuth consumer: HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.consumer_key || !data.consumer_secret) {
+            throw new Error('Invalid OAuth consumer response');
+        }
+
+        this.oauthConsumer = data;
+        return data;
+    }
+
+    /**
+     * OAuth 1.0 encoding (RFC 3986)
+     */
+    oauthEncode(value) {
+        return encodeURIComponent(String(value))
+            .replace(/[!'()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+    }
+
+    /**
+     * Generate OAuth 1.0 Authorization header
+     */
+    async buildOAuth1Header(method, url, token, tokenSecret, extraParams = {}) {
+        const {consumer_key, consumer_secret} = await this.getOAuthConsumer();
+        const nonce = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)) + Date.now();
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+
+        const oauthParams = {
+            oauth_consumer_key: consumer_key,
+            oauth_nonce: nonce,
+            oauth_signature_method: 'HMAC-SHA1',
+            oauth_timestamp: timestamp,
+            oauth_token: token,
+            oauth_version: '1.0'
+        };
+
+        const urlObj = new URL(url);
+        const queryParams = {};
+        urlObj.searchParams.forEach((value, key) => {
+            queryParams[key] = value;
+        });
+
+        const signatureParams = {
+            ...queryParams,
+            ...extraParams,
+            ...oauthParams
+        };
+
+        const normalizedParams = Object.entries(signatureParams)
+            .filter(([, value]) => value !== undefined && value !== null)
+            .map(([key, value]) => [this.oauthEncode(key), this.oauthEncode(value)])
+            .sort((a, b) => (a[0] === b[0] ? (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0) : a[0] < b[0] ? -1 : 1))
+            .map(([key, value]) => `${key}=${value}`)
+            .join('&');
+
+        const baseUrl = `${urlObj.origin}${urlObj.pathname}`;
+        const baseString = [
+            method.toUpperCase(),
+            this.oauthEncode(baseUrl),
+            this.oauthEncode(normalizedParams)
+        ].join('&');
+
+        const signingKey = `${this.oauthEncode(consumer_secret)}&${this.oauthEncode(tokenSecret || '')}`;
+        const signature = await this.hmacSha1Base64(signingKey, baseString);
+
+        oauthParams.oauth_signature = signature;
+
+        const headerParams = Object.entries(oauthParams)
+            .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+            .map(([key, value]) => `${this.oauthEncode(key)}="${this.oauthEncode(value)}"`)
+            .join(', ');
+
+        return `OAuth ${headerParams}`;
+    }
+
+    /**
+     * HMAC-SHA1 base64 helper
+     */
+    async hmacSha1Base64(key, data) {
+        const encoder = new TextEncoder();
+        const cryptoKey = await crypto.subtle.importKey(
+            'raw',
+            encoder.encode(key),
+            {name: 'HMAC', hash: 'SHA-1'},
+            false,
+            ['sign']
+        );
+        const signature = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(data));
+        const bytes = new Uint8Array(signature);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
+    /**
+     * Exchange service ticket for OAuth tokens (matches garth flow)
+     */
+    async getOAuthTokens(ticket) {
+        const preauthUrl = `${GarminPlatform.CONNECT_API_URL}/oauth-service/oauth/preauthorized` +
+            `?ticket=${encodeURIComponent(ticket)}` +
+            `&login-url=${encodeURIComponent(GarminPlatform.SSO_EMBED_URL)}` +
+            `&accepts-mfa-tokens=true`;
+
+        const preauthResponse = await fetch(preauthUrl, {
+            headers: {
+                'User-Agent': GarminPlatform.MOBILE_USER_AGENT
+            }
+        });
+
+        if (!preauthResponse.ok) {
+            throw new Error(`OAuth preauthorization failed: HTTP ${preauthResponse.status}`);
+        }
+
+        const preauthText = await preauthResponse.text();
+        const preauthParams = new URLSearchParams(preauthText);
+        const oauth1 = {
+            oauth_token: preauthParams.get('oauth_token'),
+            oauth_token_secret: preauthParams.get('oauth_token_secret'),
+            mfa_token: preauthParams.get('mfa_token')
+        };
+
+        if (!oauth1.oauth_token || !oauth1.oauth_token_secret) {
+            throw new Error('OAuth preauthorization returned incomplete token');
+        }
+
+        const exchangeUrl = `${GarminPlatform.CONNECT_API_URL}/oauth-service/oauth/exchange/user/2.0`;
+        const bodyParams = {};
+        if (oauth1.mfa_token) {
+            bodyParams.mfa_token = oauth1.mfa_token;
+        }
+        const body = new URLSearchParams(bodyParams).toString();
+
+        const authHeader = await this.buildOAuth1Header(
+            'POST',
+            exchangeUrl,
+            oauth1.oauth_token,
+            oauth1.oauth_token_secret,
+            bodyParams
+        );
+
+        const exchangeResponse = await fetch(exchangeUrl, {
+            method: 'POST',
+            headers: {
+                'User-Agent': GarminPlatform.MOBILE_USER_AGENT,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': authHeader
+            },
+            body: body
+        });
+
+        if (!exchangeResponse.ok) {
+            const errorText = await exchangeResponse.text();
+            throw new Error(`OAuth exchange failed: HTTP ${exchangeResponse.status} ${errorText.substring(0, 200)}`);
+        }
+
+        const oauth2 = await exchangeResponse.json();
+        const now = Math.floor(Date.now() / 1000);
+        if (oauth2.expires_in && !oauth2.expires_at) {
+            oauth2.expires_at = now + oauth2.expires_in;
+        }
+        if (oauth2.refresh_token_expires_in && !oauth2.refresh_token_expires_at) {
+            oauth2.refresh_token_expires_at = now + oauth2.refresh_token_expires_in;
+        }
+        return {oauth1, oauth2};
+    }
+
+    /**
      * Parse cookies with verbose logging
      */
     parseSetCookiesVerbose(response, context) {
@@ -552,14 +760,39 @@ export class GarminPlatform {
     async validateSession(credentials) {
         // For Garmin, we try to make a simple API call to verify the session
         try {
-            const {oauth1, oauth2, cookies} = credentials;
-            if (!oauth1 && !oauth2 && !cookies) return false;
+            if (!credentials) return false;
 
-            // Try to fetch user profile as validation
+            const accessToken = this.getOAuthAccessToken(credentials);
+            if (accessToken) {
+                const response = await fetch(
+                    `${GarminPlatform.CONNECT_API_URL}/userprofile-service/socialProfile`,
+                    {
+                        headers: {
+                            'User-Agent': GarminPlatform.MOBILE_USER_AGENT,
+                            'Authorization': `${accessToken.tokenType} ${accessToken.token}`,
+                            'Accept': 'application/json',
+                            'Accept-Language': 'en-US,en;q=0.9'
+                        }
+                    }
+                );
+
+                return response.ok;
+            }
+
+            const cookieString = this.buildCookieString(credentials);
+            if (!cookieString) return false;
+
             const response = await fetch(
-                `${GarminPlatform.CONNECT_URL}/modern/proxy/userprofile-service/socialProfile`,
+                `${GarminPlatform.CONNECT_URL}/proxy/userprofile-service/socialProfile`,
                 {
-                    headers: this.getAuthHeaders(credentials)
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Cookie': cookieString,
+                        'NK': 'NT',
+                        'Accept': 'application/json',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'DI-Backend': 'connectapi.garmin.com'
+                    }
                 }
             );
 
@@ -588,18 +821,24 @@ export class GarminPlatform {
 
         // Build cookie string from credentials
         const cookieString = this.buildCookieString(credentials);
+        const accessToken = this.getOAuthAccessToken(credentials);
         addDebug('cookies', {
             cookieLength: cookieString.length,
-            cookiePreview: cookieString.substring(0, 100) + '...',
+            cookiePreview: cookieString ? cookieString.substring(0, 100) + '...' : '',
+            hasCookies: cookieString.length > 0
+        });
+        addDebug('auth', {
+            hasAccessToken: !!accessToken,
+            tokenType: accessToken?.tokenType || null,
             hasCookies: cookieString.length > 0
         });
 
-        if (!cookieString) {
-            debugInfo.error = 'No valid session cookies found';
+        if (!cookieString && !accessToken) {
+            debugInfo.error = 'No valid access token or session cookies found';
             if (debugMode) {
                 return {activities: [], debug: debugInfo};
             }
-            throw new Error('No valid session cookies found');
+            throw new Error('No valid access token or session cookies found');
         }
 
         const params = new URLSearchParams({
@@ -615,17 +854,77 @@ export class GarminPlatform {
             limit: '20'  // Just get recent 20 activities
         });
 
-        // Try different API endpoints (in order of preference)
-        const endpoints = [
-            // Modern proxy endpoints (current Garmin Connect)
-            `${GarminPlatform.MODERN_URL}/proxy/activitylist-service/activities?${simpleParams}`,
-            `${GarminPlatform.MODERN_URL}/proxy/activitylist-service/activities?${params}`,
-            `${GarminPlatform.MODERN_URL}/proxy/activitylist-service/activities/search/activities?${params}`,
-            // Legacy proxy endpoints (fallback)
-            `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities?${simpleParams}`,
-            `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities?${params}`,
-            `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities/search/activities?${params}`,
-        ];
+        const requests = [];
+
+        if (accessToken) {
+            const authHeader = `${accessToken.tokenType} ${accessToken.token}`;
+            const authHeaders = {
+                'User-Agent': GarminPlatform.MOBILE_USER_AGENT,
+                'Authorization': authHeader,
+                'NK': 'NT',
+                'DI-Backend': 'connectapi.garmin.com',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9'
+            };
+
+            requests.push(
+                {
+                    url: `${GarminPlatform.CONNECT_URL}/activitylist-service/activities/search/activities?${params}`,
+                    headers: authHeaders
+                },
+                {
+                    url: `${GarminPlatform.CONNECT_URL}/activitylist-service/activities?${simpleParams}`,
+                    headers: authHeaders
+                },
+                {url: `${GarminPlatform.CONNECT_URL}/activitylist-service/activities?${params}`, headers: authHeaders}
+            );
+
+            const connectApiHeaders = {
+                'User-Agent': GarminPlatform.MOBILE_USER_AGENT,
+                'Authorization': authHeader,
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9'
+            };
+
+            requests.push(
+                {
+                    url: `${GarminPlatform.CONNECT_API_URL}/activitylist-service/activities/search/activities?${params}`,
+                    headers: connectApiHeaders
+                },
+                {
+                    url: `${GarminPlatform.CONNECT_API_URL}/activitylist-service/activities?${simpleParams}`,
+                    headers: connectApiHeaders
+                }
+            );
+        }
+
+        if (cookieString) {
+            const cookieHeaders = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Cookie': cookieString,
+                'NK': 'NT',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'DI-Backend': 'connectapi.garmin.com',
+                'Origin': GarminPlatform.CONNECT_URL,
+                'Referer': `${GarminPlatform.MODERN_URL}/`
+            };
+
+            requests.push(
+                {
+                    url: `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities?${simpleParams}`,
+                    headers: cookieHeaders
+                },
+                {
+                    url: `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities?${params}`,
+                    headers: cookieHeaders
+                },
+                {
+                    url: `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities/search/activities?${params}`,
+                    headers: cookieHeaders
+                }
+            );
+        }
 
         let url;
         let lastError;
@@ -633,23 +932,13 @@ export class GarminPlatform {
         let responseStatus;
         let responseStatusText;
 
-        for (const endpoint of endpoints) {
-            url = endpoint;
+        for (let i = 0; i < requests.length; i++) {
+            const request = requests[i];
+            url = request.url;
             addDebug('trying-endpoint', {url});
 
             try {
-                const fetched = await fetch(url, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Cookie': cookieString,
-                        'NK': 'NT',
-                        'Accept': 'application/json',
-                        'Accept-Language': 'en-US,en;q=0.9',
-                        'DI-Backend': 'connectapi.garmin.com',
-                        'Origin': GarminPlatform.CONNECT_URL,
-                        'Referer': `${GarminPlatform.MODERN_URL}/`
-                    }
-                });
+                const fetched = await fetch(url, {headers: request.headers});
 
                 const contentType = fetched.headers.get('content-type') || '';
                 if (!fetched.ok) {
@@ -672,7 +961,7 @@ export class GarminPlatform {
                     continue;
                 }
 
-                if (trimmed === '{}' && endpoint !== endpoints[endpoints.length - 1]) {
+                if (trimmed === '{}' && i < requests.length - 1) {
                     addDebug('endpoint-empty-object', {url});
                     lastError = 'Empty JSON object';
                     continue;
@@ -808,12 +1097,12 @@ export class GarminPlatform {
 
         // Add individual credentials if not already added
         // oauth1 is GARMIN-SSO-CUST-GUID
-        if (credentials.oauth1 && !addedCookies.has('GARMIN-SSO-CUST-GUID')) {
+        if (credentials.oauth1 && typeof credentials.oauth1 === 'string' && !addedCookies.has('GARMIN-SSO-CUST-GUID')) {
             addCookie('GARMIN-SSO-CUST-GUID', credentials.oauth1);
         }
 
         // oauth2 might be SESSION or SESSIONID - try both if not already present
-        if (credentials.oauth2) {
+        if (credentials.oauth2 && typeof credentials.oauth2 === 'string') {
             if (!addedCookies.has('SESSION') && !addedCookies.has('SESSIONID')) {
                 addCookie('SESSION', credentials.oauth2);
             }
@@ -832,9 +1121,55 @@ export class GarminPlatform {
     }
 
     /**
+     * Extract OAuth2 access token from credentials
+     */
+    getOAuthAccessToken(credentials) {
+        if (!credentials) return null;
+
+        if (credentials.oauth2AccessToken) {
+            if (credentials.oauth2ExpiresAt) {
+                const expiresAtMs = typeof credentials.oauth2ExpiresAt === 'number'
+                    ? (credentials.oauth2ExpiresAt > 1e12 ? credentials.oauth2ExpiresAt : credentials.oauth2ExpiresAt * 1000)
+                    : Date.parse(credentials.oauth2ExpiresAt);
+                if (!Number.isNaN(expiresAtMs) && expiresAtMs < Date.now()) {
+                    return null;
+                }
+            }
+            return {
+                token: credentials.oauth2AccessToken,
+                tokenType: credentials.oauth2TokenType || 'Bearer'
+            };
+        }
+
+        if (credentials.oauth2 && typeof credentials.oauth2 === 'object' && credentials.oauth2.access_token) {
+            if (credentials.oauth2.expires_at && credentials.oauth2.expires_at * 1000 < Date.now()) {
+                return null;
+            }
+            return {
+                token: credentials.oauth2.access_token,
+                tokenType: credentials.oauth2.token_type || 'Bearer'
+            };
+        }
+
+        return null;
+    }
+
+    /**
      * Get authentication headers for API requests
      */
     getAuthHeaders(credentials) {
+        const accessToken = this.getOAuthAccessToken(credentials);
+        if (accessToken) {
+            return {
+                'User-Agent': GarminPlatform.MOBILE_USER_AGENT,
+                'Authorization': `${accessToken.tokenType} ${accessToken.token}`,
+                'NK': 'NT',
+                'DI-Backend': 'connectapi.garmin.com',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9'
+            };
+        }
+
         return {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Cookie': this.buildCookieString(credentials),
