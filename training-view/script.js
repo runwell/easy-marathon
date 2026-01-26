@@ -139,6 +139,7 @@ async function fetchActivitiesWithDebug(startDate, endDate) {
     const params = new URLSearchParams();
     params.set('startDate', startDate);
     params.set('endDate', endDate);
+    params.set('debug', 'true');  // Enable debug mode
 
     const apiUrl = AuthService.getApiUrl();
     const url = `${apiUrl}/api/activities?${params}`;
@@ -152,7 +153,7 @@ async function fetchActivitiesWithDebug(startDate, endDate) {
     });
 
     const responseText = await response.text();
-    console.log('Raw API response:', responseText.substring(0, 1000));
+    console.log('Raw API response:', responseText.substring(0, 2000));
 
     let data;
     try {
@@ -169,13 +170,15 @@ async function fetchActivitiesWithDebug(startDate, endDate) {
         throw new Error(data.error || `API error: ${response.status}`);
     }
 
-    // Build debug info
+    // Build debug info from response
     const debug = {
         apiUrl: url,
         status: response.status,
         rawLength: responseText.length,
         activityCount: data.activities?.length || 0,
-        sampleActivity: data.activities?.[0] ? JSON.stringify(data.activities[0]).substring(0, 300) : 'none'
+        sampleActivity: data.activities?.[0] ? JSON.stringify(data.activities[0]).substring(0, 300) : 'none',
+        // Include server-side debug info if available
+        serverDebug: data.debug || null
     };
 
     return {
@@ -201,6 +204,20 @@ function showActivityStatus(count, startDate, endDate, debug = null) {
 
     let debugHtml = '';
     if (debug) {
+        let serverDebugHtml = '';
+        if (debug.serverDebug) {
+            const sd = debug.serverDebug;
+            serverDebugHtml = `
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">
+                <p><strong>Server Debug Info:</strong></p>
+                <p><strong>Credential Keys:</strong> ${sd.credentialKeys?.join(', ') || 'none'}</p>
+                ${sd.error ? `<p style="color: #f87171;"><strong>Error:</strong> ${sd.error}</p>` : ''}
+                ${sd.htmlPreview ? `<p><strong>HTML Response (session expired?):</strong></p><pre>${escapeHtml(sd.htmlPreview)}</pre>` : ''}
+                <p><strong>Steps:</strong></p>
+                <pre>${JSON.stringify(sd.steps, null, 2)}</pre>
+            `;
+        }
+
         debugHtml = `
             <button class="debug-toggle-btn" onclick="toggleDebugInfo()">Show Debug Info</button>
             <div id="debug-info" class="debug-info" style="display: none;">
@@ -210,6 +227,7 @@ function showActivityStatus(count, startDate, endDate, debug = null) {
                 <p><strong>Activities in response:</strong> ${debug.activityCount}</p>
                 <p><strong>Sample activity:</strong></p>
                 <pre>${debug.sampleActivity}</pre>
+                ${serverDebugHtml}
             </div>
         `;
     }
@@ -246,6 +264,15 @@ window.toggleDebugInfo = function () {
         }
     }
 };
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
 /**
  * Show login prompt for unauthenticated users

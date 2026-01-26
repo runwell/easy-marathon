@@ -421,15 +421,33 @@ export class GarminPlatform {
     /**
      * Fetch activities from Garmin Connect
      */
-    async fetchActivities(credentials, startDate, endDate) {
-        console.log('Fetching activities with credentials keys:', Object.keys(credentials || {}));
-        console.log('Date range:', startDate, 'to', endDate);
+    async fetchActivities(credentials, startDate, endDate, debugMode = false) {
+        const debugInfo = {
+            steps: [],
+            credentialKeys: Object.keys(credentials || {}),
+            dateRange: {startDate, endDate}
+        };
+
+        const addDebug = (step, data) => {
+            debugInfo.steps.push({step, data, time: new Date().toISOString()});
+            console.log(`[${step}]`, typeof data === 'object' ? JSON.stringify(data).substring(0, 500) : data);
+        };
+
+        addDebug('start', {credentialKeys: debugInfo.credentialKeys});
 
         // Build cookie string from credentials
         const cookieString = this.buildCookieString(credentials);
-        console.log('Cookie string length:', cookieString.length);
+        addDebug('cookies', {
+            cookieLength: cookieString.length,
+            cookiePreview: cookieString.substring(0, 100) + '...',
+            hasCookies: cookieString.length > 0
+        });
 
         if (!cookieString) {
+            debugInfo.error = 'No valid session cookies found';
+            if (debugMode) {
+                return {activities: [], debug: debugInfo};
+            }
             throw new Error('No valid session cookies found');
         }
 
@@ -441,7 +459,7 @@ export class GarminPlatform {
         });
 
         const url = `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities/search/activities?${params}`;
-        console.log('Fetching from URL:', url);
+        addDebug('request', {url});
 
         const response = await fetch(url, {
             headers: {
@@ -453,66 +471,87 @@ export class GarminPlatform {
             }
         });
 
-        console.log('Response status:', response.status);
-
-        if (!response.ok) {
-            const errorText = await response.text().catch(() => '');
-            console.error('Activities fetch failed:', response.status, errorText.substring(0, 1000));
-            throw new Error(`Failed to fetch activities: HTTP ${response.status}`);
-        }
+        addDebug('response', {status: response.status, statusText: response.statusText});
 
         const responseText = await response.text();
-        console.log('Response length:', responseText.length);
-        console.log('Response preview:', responseText.substring(0, 500));
+        addDebug('responseBody', {
+            length: responseText.length,
+            preview: responseText.substring(0, 500),
+            isHTML: responseText.trim().startsWith('<')
+        });
+
+        // Check if we got an HTML response (usually means redirect to login)
+        if (responseText.trim().startsWith('<')) {
+            debugInfo.error = 'Received HTML instead of JSON - session may be invalid';
+            debugInfo.htmlPreview = responseText.substring(0, 1000);
+            if (debugMode) {
+                return {activities: [], debug: debugInfo};
+            }
+            throw new Error('Session expired - received login page instead of data');
+        }
+
+        if (!response.ok) {
+            debugInfo.error = `HTTP ${response.status}: ${responseText.substring(0, 500)}`;
+            if (debugMode) {
+                return {activities: [], debug: debugInfo};
+            }
+            throw new Error(`Failed to fetch activities: HTTP ${response.status}`);
+        }
 
         let responseData;
         try {
             responseData = JSON.parse(responseText);
         } catch (e) {
-            console.error('Failed to parse JSON:', e.message);
+            debugInfo.error = `JSON parse error: ${e.message}`;
+            if (debugMode) {
+                return {activities: [], debug: debugInfo};
+            }
             throw new Error('Invalid JSON response from Garmin');
         }
 
         // Handle different response formats from Garmin API
         let rawActivities;
+        let responseFormat = 'unknown';
+
         if (Array.isArray(responseData)) {
-            // Direct array response
             rawActivities = responseData;
-            console.log('Response is direct array');
+            responseFormat = 'direct_array';
         } else if (responseData && Array.isArray(responseData.activityList)) {
-            // Wrapped in activityList property
             rawActivities = responseData.activityList;
-            console.log('Found activities in activityList');
+            responseFormat = 'activityList';
         } else if (responseData && Array.isArray(responseData.activities)) {
-            // Wrapped in activities property
             rawActivities = responseData.activities;
-            console.log('Found activities in activities');
+            responseFormat = 'activities';
         } else if (responseData && typeof responseData === 'object') {
-            // Try to find any array property
-            console.log('Response keys:', Object.keys(responseData));
-            const arrayProp = Object.keys(responseData).find(key => Array.isArray(responseData[key]));
+            const keys = Object.keys(responseData);
+            const arrayProp = keys.find(key => Array.isArray(responseData[key]));
             if (arrayProp) {
-                console.log('Found activities in property:', arrayProp);
                 rawActivities = responseData[arrayProp];
+                responseFormat = `property:${arrayProp}`;
             } else {
-                console.error('Unexpected response structure:', JSON.stringify(responseData).substring(0, 1000));
                 rawActivities = [];
+                responseFormat = 'no_array_found';
+                debugInfo.responseKeys = keys;
+                debugInfo.responsePreview = JSON.stringify(responseData).substring(0, 1000);
             }
         } else {
-            console.error('Unexpected response type:', typeof responseData);
             rawActivities = [];
+            responseFormat = 'invalid';
         }
 
-        console.log(`Fetched ${rawActivities.length} raw activities`);
-
-        // Log first activity for debugging
-        if (rawActivities.length > 0) {
-            console.log('First activity sample:', JSON.stringify(rawActivities[0]).substring(0, 500));
-        }
+        addDebug('parsed', {
+            responseFormat,
+            rawCount: rawActivities.length,
+            firstActivity: rawActivities[0] ? JSON.stringify(rawActivities[0]).substring(0, 300) : null
+        });
 
         // Transform to normalized format
         const normalized = this.normalizeActivities(rawActivities);
-        console.log(`Normalized to ${normalized.length} activities`);
+        addDebug('normalized', {count: normalized.length});
+
+        if (debugMode) {
+            return {activities: normalized, debug: debugInfo};
+        }
 
         return normalized;
     }

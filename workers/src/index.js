@@ -224,6 +224,7 @@ async function handleGetActivities(request, env) {
     const url = new URL(request.url);
     const startDate = url.searchParams.get('startDate') || getDefaultStartDate();
     const endDate = url.searchParams.get('endDate') || new Date().toISOString().split('T')[0];
+    const debug = url.searchParams.get('debug') === 'true';
 
     try {
         const sessionData = JSON.parse(atob(token));
@@ -235,8 +236,21 @@ async function handleGetActivities(request, env) {
         }
 
         const platformInstance = new PlatformClass(env);
-        const activities = await platformInstance.fetchActivities(credentials, startDate, endDate);
 
+        // Enable debug mode to get more info
+        const result = await platformInstance.fetchActivities(credentials, startDate, endDate, debug);
+
+        // If debug mode, return extra info
+        if (debug && result.debug) {
+            return jsonResponse({
+                activities: result.activities || result,
+                startDate,
+                endDate,
+                debug: result.debug
+            }, 200, env);
+        }
+
+        const activities = result.activities || result;
         return jsonResponse({activities, startDate, endDate}, 200, env);
 
     } catch (error) {
