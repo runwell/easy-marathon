@@ -63,6 +63,10 @@ export class GarminPlatform {
             logAuth('exchange-done', {
                 hasOAuth1: !!session.oauth1,
                 hasOAuth2: !!session.oauth2,
+                hasJwtFgp: !!session.jwtFgp,
+                hasJwtWeb: !!session.jwtWeb,
+                oauth1Preview: session.oauth1 ? session.oauth1.substring(0, 20) + '...' : null,
+                jwtFgpPreview: session.jwtFgp ? session.jwtFgp.substring(0, 20) + '...' : null,
                 cookieNames: Object.keys(session.allCookies || {}),
                 cookieCount: Object.keys(session.allCookies || {}).length
             });
@@ -79,6 +83,8 @@ export class GarminPlatform {
                 credentials: {
                     oauth1: session.oauth1,
                     oauth2: session.oauth2,
+                    jwtFgp: session.jwtFgp,
+                    jwtWeb: session.jwtWeb,
                     cookies: session.allCookies
                 },
                 authDebug: this.authDebug, // Include debug info in session for troubleshooting
@@ -401,28 +407,47 @@ export class GarminPlatform {
             maxRedirects--;
         }
 
-        // Get OAuth tokens from cookies
-        const oauth1 = this.cookies.get('GARMIN-SSO-CUST-GUID');
-        const oauth2 = this.cookies.get('SESSIONID');
-
-        console.log('Final cookies in map:', [...this.cookies.keys()].join(', '));
-
-        // Collect ALL cookies for future API calls (not just Garmin ones)
-        const allCookies = {};
+        // Debug: Log all cookie names and value lengths
+        console.log('Final cookies in map:');
         for (const [name, value] of this.cookies) {
-            allCookies[name] = value;
+            console.log(`  ${name}: ${value ? value.substring(0, 30) + '... (len:' + value.length + ')' : 'EMPTY'}`);
         }
 
-        console.log('All cookies collected:', Object.keys(allCookies).join(', '));
+        // Get OAuth tokens from cookies (try multiple possible names)
+        const oauth1 = this.cookies.get('GARMIN-SSO-CUST-GUID') || this.cookies.get('GARMIN-SSO-GUID');
+        const oauth2 = this.cookies.get('SESSIONID') || this.cookies.get('SESSION') || this.cookies.get('session');
 
-        if (!oauth1 && !oauth2) {
-            console.log('WARNING: Missing GARMIN-SSO-CUST-GUID and SESSIONID');
-            console.log('Available cookies:', Object.keys(allCookies).join(', '));
+        // Also get JWT tokens which Garmin now uses
+        const jwtFgp = this.cookies.get('JWT_FGP');
+        const jwtWeb = this.cookies.get('JWT_WEB');
+
+        console.log('Key tokens found:');
+        console.log('  oauth1 (GARMIN-SSO-CUST-GUID):', oauth1 ? `${oauth1.substring(0, 20)}... (len:${oauth1.length})` : 'MISSING');
+        console.log('  oauth2 (SESSIONID):', oauth2 ? `${oauth2.substring(0, 20)}... (len:${oauth2.length})` : 'MISSING');
+        console.log('  JWT_FGP:', jwtFgp ? `${jwtFgp.substring(0, 20)}... (len:${jwtFgp.length})` : 'MISSING');
+        console.log('  JWT_WEB:', jwtWeb ? `${jwtWeb.substring(0, 20)}... (len:${jwtWeb.length})` : 'MISSING');
+
+        // Collect ALL cookies for future API calls
+        const allCookies = {};
+        for (const [name, value] of this.cookies) {
+            if (value) { // Only store non-empty cookies
+                allCookies[name] = value;
+            }
+        }
+
+        console.log('All cookies with values:', Object.keys(allCookies).join(', '));
+
+        // Check if we have enough auth data
+        const hasAuth = oauth1 || jwtFgp || jwtWeb || Object.keys(allCookies).length > 3;
+        if (!hasAuth) {
+            console.log('WARNING: May not have enough authentication cookies');
         }
 
         return {
             oauth1,
             oauth2,
+            jwtFgp,
+            jwtWeb,
             allCookies,
             displayName: null
         };
@@ -434,52 +459,47 @@ export class GarminPlatform {
     parseSetCookiesVerbose(response, context) {
         console.log(`[${context}] Parsing cookies...`);
 
-        // Method 1: Try getSetCookie()
+        // Method 1: Try getSetCookie() - this is the reliable method in Workers
         if (typeof response.headers.getSetCookie === 'function') {
             const cookies = response.headers.getSetCookie();
             console.log(`[${context}] getSetCookie() returned ${cookies.length} cookies`);
             cookies.forEach((cookie, i) => {
-                console.log(`[${context}] Cookie ${i}: ${cookie.substring(0, 100)}`);
-                this.parseSingleCookie(cookie);
+                console.log(`[${context}] Raw cookie ${i}: ${cookie.substring(0, 150)}`);
+                this.parseSingleCookieVerbose(cookie, context);
             });
         } else {
-            console.log(`[${context}] getSetCookie() not available`);
-        }
+            console.log(`[${context}] getSetCookie() not available, trying fallback`);
 
-        // Method 2: Try get('set-cookie')
-        const setCookieHeader = response.headers.get('set-cookie');
-        if (setCookieHeader) {
-            console.log(`[${context}] set-cookie header: ${setCookieHeader.substring(0, 200)}`);
-            // This usually only gets the first cookie
-            this.parseSingleCookie(setCookieHeader);
-        } else {
-            console.log(`[${context}] No set-cookie header found`);
-        }
-
-        // Method 3: Iterate all headers looking for cookies
-        response.headers.forEach((value, key) => {
-            if (key.toLowerCase() === 'set-cookie') {
-                console.log(`[${context}] Header iteration found: ${value.substring(0, 100)}`);
+            // Fallback: Try get('set-cookie')
+            const setCookieHeader = response.headers.get('set-cookie');
+            if (setCookieHeader) {
+                console.log(`[${context}] set-cookie header: ${setCookieHeader.substring(0, 200)}`);
+                this.parseSingleCookieVerbose(setCookieHeader, context);
             }
-        });
+        }
     }
 
     /**
-     * Parse a single cookie string
+     * Parse a single cookie string with verbose output
      */
-    parseSingleCookie(cookieString) {
+    parseSingleCookieVerbose(cookieString, context) {
         if (!cookieString) return;
 
-        // Handle multiple cookies separated by comma (but not in expires date)
-        const parts = cookieString.split(/,(?=\s*[^;,]+=)/);
+        // Cookie format: name=value; attr1; attr2=val; ...
+        // We only want the name=value part
+        const firstPart = cookieString.split(';')[0].trim();
+        const eqIndex = firstPart.indexOf('=');
 
-        for (const part of parts) {
-            const match = part.trim().match(/^([^=]+)=([^;]*)/);
-            if (match) {
-                const name = match[1].trim();
-                const value = match[2].trim();
-                console.log(`Storing cookie: ${name}=${value.substring(0, 30)}...`);
+        if (eqIndex > 0) {
+            const name = firstPart.substring(0, eqIndex).trim();
+            const value = firstPart.substring(eqIndex + 1).trim();
+
+            // Skip empty values and some attributes that look like cookies
+            if (value && name && !name.toLowerCase().startsWith('path') && !name.toLowerCase().startsWith('domain')) {
+                console.log(`[${context}] Storing: ${name} = ${value.substring(0, 50)}${value.length > 50 ? '...' : ''} (len: ${value.length})`);
                 this.cookies.set(name, value);
+            } else {
+                console.log(`[${context}] Skipping: ${name} (empty or attribute)`);
             }
         }
     }
@@ -658,30 +678,35 @@ export class GarminPlatform {
      */
     buildCookieString(credentials) {
         const parts = [];
+        const addedCookies = new Set();
 
         if (!credentials) {
             console.error('No credentials provided');
             return '';
         }
 
-        // Add oauth1 and oauth2 if present
-        if (credentials.oauth1) {
-            parts.push(`GARMIN-SSO-CUST-GUID=${credentials.oauth1}`);
-        }
-        if (credentials.oauth2) {
-            parts.push(`SESSIONID=${credentials.oauth2}`);
-        }
+        // Helper to add cookie without duplicates
+        const addCookie = (name, value) => {
+            if (value && !addedCookies.has(name)) {
+                parts.push(`${name}=${value}`);
+                addedCookies.add(name);
+            }
+        };
+
+        // Add key authentication cookies first (in order of importance)
+        addCookie('GARMIN-SSO-CUST-GUID', credentials.oauth1);
+        addCookie('SESSIONID', credentials.oauth2);
+        addCookie('JWT_FGP', credentials.jwtFgp);
+        addCookie('JWT_WEB', credentials.jwtWeb);
 
         // Add all cookies from the cookies object
         if (credentials.cookies && typeof credentials.cookies === 'object') {
             for (const [name, value] of Object.entries(credentials.cookies)) {
-                if (name !== 'GARMIN-SSO-CUST-GUID' && name !== 'SESSIONID' && value) {
-                    parts.push(`${name}=${value}`);
-                }
+                addCookie(name, value);
             }
         }
 
-        console.log('Built cookie parts:', parts.length);
+        console.log('Built cookie string with', parts.length, 'cookies:', [...addedCookies].join(', '));
         return parts.join('; ');
     }
 
