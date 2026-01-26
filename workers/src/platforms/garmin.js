@@ -61,21 +61,7 @@ export class GarminPlatform {
                 ticketPreview: loginResult.ticket?.substring(0, 20)
             });
 
-            // Step 3: Exchange ticket for session
-            logAuth('exchange-start', {cookieCount: this.cookies.size});
-            const session = await this.exchangeTicket(loginResult.ticket);
-            logAuth('exchange-done', {
-                hasOAuth1: !!session.oauth1,
-                hasOAuth2: !!session.oauth2,
-                hasJwtFgp: !!session.jwtFgp,
-                hasJwtWeb: !!session.jwtWeb,
-                oauth1Preview: session.oauth1 ? session.oauth1.substring(0, 20) + '...' : null,
-                jwtFgpPreview: session.jwtFgp ? session.jwtFgp.substring(0, 20) + '...' : null,
-                cookieNames: Object.keys(session.allCookies || {}),
-                cookieCount: Object.keys(session.allCookies || {}).length
-            });
-
-            // Step 4: Exchange ticket for OAuth tokens (used by connectapi)
+            // Step 3: Exchange ticket for OAuth tokens (used by connectapi)
             let oauthTokens = null;
             try {
                 logAuth('oauth-start', {});
@@ -88,6 +74,36 @@ export class GarminPlatform {
                 });
             } catch (oauthError) {
                 logAuth('oauth-error', {message: oauthError.message});
+            }
+
+            // Step 4: Exchange ticket for session cookies (best-effort, ticket may be single-use)
+            let session = {
+                oauth1: null,
+                oauth2: null,
+                jwtFgp: null,
+                jwtWeb: null,
+                allCookies: {},
+                displayName: null
+            };
+            try {
+                logAuth('exchange-start', {cookieCount: this.cookies.size});
+                session = await this.exchangeTicket(loginResult.ticket);
+                logAuth('exchange-done', {
+                    hasOAuth1: !!session.oauth1,
+                    hasOAuth2: !!session.oauth2,
+                    hasJwtFgp: !!session.jwtFgp,
+                    hasJwtWeb: !!session.jwtWeb,
+                    oauth1Preview: session.oauth1 ? session.oauth1.substring(0, 20) + '...' : null,
+                    jwtFgpPreview: session.jwtFgp ? session.jwtFgp.substring(0, 20) + '...' : null,
+                    cookieNames: Object.keys(session.allCookies || {}),
+                    cookieCount: Object.keys(session.allCookies || {}).length
+                });
+            } catch (exchangeError) {
+                logAuth('exchange-error', {message: exchangeError.message});
+            }
+
+            if (!session.allCookies || Object.keys(session.allCookies).length === 0) {
+                session.allCookies = Object.fromEntries(this.cookies.entries());
             }
 
             // Log final state with more detail
