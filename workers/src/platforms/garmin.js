@@ -609,22 +609,57 @@ export class GarminPlatform {
             endDate: endDate
         });
 
-        // Try the modern proxy endpoint - this is what the Garmin Connect web app uses
-        const url = `${GarminPlatform.CONNECT_URL}/modern/proxy/activitylist-service/activities/search/activities?${params}`;
-        addDebug('request', {url});
+        // Try different API endpoints
+        const endpoints = [
+            // Direct connectapi endpoint (used by garth library)
+            `https://connectapi.garmin.com/activitylist-service/activities/search/activities?${params}`,
+            // Legacy proxy endpoint
+            `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities/search/activities?${params}`,
+        ];
 
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Cookie': cookieString,
-                'NK': 'NT',
-                'Accept': 'application/json',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'DI-Backend': 'connectapi.garmin.com',
-                'Referer': 'https://connect.garmin.com/modern/activities',
-                'Origin': 'https://connect.garmin.com'
+        let response;
+        let url;
+        let lastError;
+
+        for (const endpoint of endpoints) {
+            url = endpoint;
+            addDebug('trying-endpoint', {url});
+
+            try {
+                response = await fetch(url, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Cookie': cookieString,
+                        'NK': 'NT',
+                        'Accept': 'application/json',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'DI-Backend': 'connectapi.garmin.com'
+                    }
+                });
+
+                // Check if response is HTML (redirect to login)
+                const contentType = response.headers.get('content-type') || '';
+                if (response.ok && contentType.includes('application/json')) {
+                    addDebug('endpoint-success', {url, status: response.status});
+                    break;
+                } else if (response.ok) {
+                    addDebug('endpoint-wrong-content', {url, contentType});
+                    lastError = `Wrong content type: ${contentType}`;
+                } else {
+                    addDebug('endpoint-failed', {url, status: response.status});
+                    lastError = `HTTP ${response.status}`;
+                }
+            } catch (e) {
+                addDebug('endpoint-error', {url, error: e.message});
+                lastError = e.message;
             }
-        });
+        }
+
+        if (!response || !response.ok) {
+            throw new Error(`All API endpoints failed. Last error: ${lastError}`);
+        }
+
+        addDebug('request', {url});
 
         addDebug('response', {status: response.status, statusText: response.statusText});
 
