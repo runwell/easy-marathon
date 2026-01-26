@@ -609,11 +609,19 @@ export class GarminPlatform {
             endDate: endDate
         });
 
-        // Try different API endpoints
+        // Simple params without date filter for testing
+        const simpleParams = new URLSearchParams({
+            start: '0',
+            limit: '20'  // Just get recent 20 activities
+        });
+
+        // Try different API endpoints (in order of preference)
         const endpoints = [
-            // Direct connectapi endpoint (used by garth library)
-            `https://connectapi.garmin.com/activitylist-service/activities/search/activities?${params}`,
-            // Legacy proxy endpoint
+            // Simple recent activities - no date filter
+            `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities?${simpleParams}`,
+            // Activities endpoint without /search/ - with date filter
+            `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities?${params}`,
+            // Legacy proxy endpoint with search
             `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities/search/activities?${params}`,
         ];
 
@@ -766,17 +774,32 @@ export class GarminPlatform {
             }
         };
 
-        // Add key authentication cookies first (in order of importance)
-        addCookie('GARMIN-SSO-CUST-GUID', credentials.oauth1);
-        addCookie('SESSIONID', credentials.oauth2);
-        addCookie('JWT_FGP', credentials.jwtFgp);
-        addCookie('JWT_WEB', credentials.jwtWeb);
-
-        // Add all cookies from the cookies object
+        // Add all cookies from the cookies object FIRST - these have the correct names
         if (credentials.cookies && typeof credentials.cookies === 'object') {
             for (const [name, value] of Object.entries(credentials.cookies)) {
                 addCookie(name, value);
             }
+        }
+
+        // Add individual credentials if not already added
+        // oauth1 is GARMIN-SSO-CUST-GUID
+        if (credentials.oauth1 && !addedCookies.has('GARMIN-SSO-CUST-GUID')) {
+            addCookie('GARMIN-SSO-CUST-GUID', credentials.oauth1);
+        }
+
+        // oauth2 might be SESSION or SESSIONID - try both if not already present
+        if (credentials.oauth2) {
+            if (!addedCookies.has('SESSION') && !addedCookies.has('SESSIONID')) {
+                addCookie('SESSION', credentials.oauth2);
+            }
+        }
+
+        // JWT tokens
+        if (credentials.jwtFgp && !addedCookies.has('JWT_FGP')) {
+            addCookie('JWT_FGP', credentials.jwtFgp);
+        }
+        if (credentials.jwtWeb && !addedCookies.has('JWT_WEB')) {
+            addCookie('JWT_WEB', credentials.jwtWeb);
         }
 
         console.log('Built cookie string with', parts.length, 'cookies:', [...addedCookies].join(', '));
