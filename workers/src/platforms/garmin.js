@@ -617,61 +617,86 @@ export class GarminPlatform {
 
         // Try different API endpoints (in order of preference)
         const endpoints = [
-            // Simple recent activities - no date filter
+            // Modern proxy endpoints (current Garmin Connect)
+            `${GarminPlatform.MODERN_URL}/proxy/activitylist-service/activities?${simpleParams}`,
+            `${GarminPlatform.MODERN_URL}/proxy/activitylist-service/activities?${params}`,
+            `${GarminPlatform.MODERN_URL}/proxy/activitylist-service/activities/search/activities?${params}`,
+            // Legacy proxy endpoints (fallback)
             `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities?${simpleParams}`,
-            // Activities endpoint without /search/ - with date filter
             `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities?${params}`,
-            // Legacy proxy endpoint with search
             `${GarminPlatform.CONNECT_URL}/proxy/activitylist-service/activities/search/activities?${params}`,
         ];
 
-        let response;
         let url;
         let lastError;
+        let responseText;
+        let responseStatus;
+        let responseStatusText;
 
         for (const endpoint of endpoints) {
             url = endpoint;
             addDebug('trying-endpoint', {url});
 
             try {
-                response = await fetch(url, {
+                const fetched = await fetch(url, {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         'Cookie': cookieString,
                         'NK': 'NT',
                         'Accept': 'application/json',
                         'Accept-Language': 'en-US,en;q=0.9',
-                        'DI-Backend': 'connectapi.garmin.com'
+                        'DI-Backend': 'connectapi.garmin.com',
+                        'Origin': GarminPlatform.CONNECT_URL,
+                        'Referer': `${GarminPlatform.MODERN_URL}/`
                     }
                 });
 
-                // Check if response is HTML (redirect to login)
-                const contentType = response.headers.get('content-type') || '';
-                if (response.ok && contentType.includes('application/json')) {
-                    addDebug('endpoint-success', {url, status: response.status});
-                    break;
-                } else if (response.ok) {
+                const contentType = fetched.headers.get('content-type') || '';
+                if (!fetched.ok) {
+                    addDebug('endpoint-failed', {url, status: fetched.status});
+                    lastError = `HTTP ${fetched.status}`;
+                    continue;
+                }
+
+                if (!contentType.includes('application/json')) {
                     addDebug('endpoint-wrong-content', {url, contentType});
                     lastError = `Wrong content type: ${contentType}`;
-                } else {
-                    addDebug('endpoint-failed', {url, status: response.status});
-                    lastError = `HTTP ${response.status}`;
+                    continue;
                 }
+
+                const text = await fetched.text();
+                const trimmed = text.trim();
+                if (trimmed.startsWith('<')) {
+                    addDebug('endpoint-html', {url});
+                    lastError = 'Received HTML';
+                    continue;
+                }
+
+                if (trimmed === '{}' && endpoint !== endpoints[endpoints.length - 1]) {
+                    addDebug('endpoint-empty-object', {url});
+                    lastError = 'Empty JSON object';
+                    continue;
+                }
+
+                responseText = text;
+                responseStatus = fetched.status;
+                responseStatusText = fetched.statusText;
+                addDebug('endpoint-success', {url, status: fetched.status});
+                break;
             } catch (e) {
                 addDebug('endpoint-error', {url, error: e.message});
                 lastError = e.message;
             }
         }
 
-        if (!response || !response.ok) {
+        if (!responseText) {
             throw new Error(`All API endpoints failed. Last error: ${lastError}`);
         }
 
         addDebug('request', {url});
 
-        addDebug('response', {status: response.status, statusText: response.statusText});
+        addDebug('response', {status: responseStatus, statusText: responseStatusText});
 
-        const responseText = await response.text();
         addDebug('responseBody', {
             length: responseText.length,
             preview: responseText.substring(0, 500),
@@ -688,12 +713,12 @@ export class GarminPlatform {
             throw new Error('Session expired - received login page instead of data');
         }
 
-        if (!response.ok) {
-            debugInfo.error = `HTTP ${response.status}: ${responseText.substring(0, 500)}`;
+        if (responseStatus && responseStatus >= 400) {
+            debugInfo.error = `HTTP ${responseStatus}: ${responseText.substring(0, 500)}`;
             if (debugMode) {
                 return {activities: [], debug: debugInfo};
             }
-            throw new Error(`Failed to fetch activities: HTTP ${response.status}`);
+            throw new Error(`Failed to fetch activities: HTTP ${responseStatus}`);
         }
 
         let responseData;
