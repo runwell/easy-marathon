@@ -442,7 +442,35 @@ export class GarminPlatform {
             throw new Error(`Failed to fetch activities: HTTP ${response.status}`);
         }
 
-        const rawActivities = await response.json();
+        const responseData = await response.json();
+
+        // Handle different response formats from Garmin API
+        let rawActivities;
+        if (Array.isArray(responseData)) {
+            // Direct array response
+            rawActivities = responseData;
+        } else if (responseData && Array.isArray(responseData.activityList)) {
+            // Wrapped in activityList property
+            rawActivities = responseData.activityList;
+        } else if (responseData && Array.isArray(responseData.activities)) {
+            // Wrapped in activities property
+            rawActivities = responseData.activities;
+        } else if (responseData && typeof responseData === 'object') {
+            // Try to find any array property
+            const arrayProp = Object.keys(responseData).find(key => Array.isArray(responseData[key]));
+            if (arrayProp) {
+                console.log('Found activities in property:', arrayProp);
+                rawActivities = responseData[arrayProp];
+            } else {
+                console.error('Unexpected response structure:', JSON.stringify(responseData).substring(0, 500));
+                rawActivities = [];
+            }
+        } else {
+            console.error('Unexpected response type:', typeof responseData);
+            rawActivities = [];
+        }
+
+        console.log(`Fetched ${rawActivities.length} raw activities`);
 
         // Transform to normalized format
         return this.normalizeActivities(rawActivities);
@@ -482,28 +510,38 @@ export class GarminPlatform {
      * Normalize Garmin activities to common format
      */
     normalizeActivities(rawActivities) {
+        // Ensure we have an array
+        if (!Array.isArray(rawActivities)) {
+            console.error('normalizeActivities received non-array:', typeof rawActivities);
+            return [];
+        }
+
         return rawActivities
             .filter(activity => {
-                const type = activity.activityType?.typeKey?.toLowerCase() || '';
+                if (!activity) return false;
+                const type = activity.activityType?.typeKey?.toLowerCase() ||
+                    activity.typeKey?.toLowerCase() ||
+                    activity.type?.toLowerCase() || '';
                 return type.includes('running') ||
                     type.includes('cycling') ||
                     type.includes('strength') ||
                     type.includes('bike') ||
-                    type.includes('ride');
+                    type.includes('ride') ||
+                    type.includes('walk');  // Include walking too
             })
             .map(activity => ({
-                id: activity.activityId,
+                id: activity.activityId || activity.id,
                 platform: 'garmin',
-                type: this.mapActivityType(activity.activityType?.typeKey),
-                startTime: activity.startTimeLocal,
+                type: this.mapActivityType(activity.activityType?.typeKey || activity.typeKey || activity.type),
+                startTime: activity.startTimeLocal || activity.startTime,
                 duration: activity.duration || 0,
                 distance: activity.distance || 0,
                 calories: activity.calories || 0,
-                averageHR: activity.averageHR,
-                maxHR: activity.maxHR,
+                averageHR: activity.averageHR || activity.avgHr,
+                maxHR: activity.maxHR || activity.maxHr,
                 elevationGain: activity.elevationGain,
                 elevationLoss: activity.elevationLoss,
-                name: activity.activityName
+                name: activity.activityName || activity.name
             }));
     }
 
