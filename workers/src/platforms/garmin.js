@@ -622,7 +622,8 @@ export class GarminPlatform {
 
         if (!preauthResponse.ok) {
             const errorText = await preauthResponse.text();
-            throw new Error(`OAuth preauthorization failed: HTTP ${preauthResponse.status} ${errorText.substring(0, 200)}`);
+            const safeText = errorText.replace(/\s+/g, ' ').trim().substring(0, 200);
+            throw new Error(`OAuth preauthorization failed: HTTP ${preauthResponse.status} ${safeText}`);
         }
 
         const preauthText = await preauthResponse.text();
