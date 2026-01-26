@@ -193,46 +193,46 @@ export class GarminPlatform {
      * Get CSRF token from Garmin SSO
      */
     async getCSRFToken() {
-        const params = new URLSearchParams({
-            service: GarminPlatform.MODERN_URL,
-            webhost: GarminPlatform.MODERN_URL,
-            source: GarminPlatform.MODERN_URL,
-            redirectAfterAccountLoginUrl: GarminPlatform.MODERN_URL,
-            redirectAfterAccountCreationUrl: GarminPlatform.MODERN_URL,
-            gauthHost: GarminPlatform.SSO_URL,
-            locale: 'en_US',
+        const embedParams = new URLSearchParams({
             id: 'gauth-widget',
-            cssUrl: 'https://connect.garmin.com/gauth-custom-v1.2-min.css',
-            privacyStatementUrl: 'https://www.garmin.com/en-US/privacy/connect/',
-            clientId: 'GarminConnect',
-            rememberMeShown: 'true',
-            rememberMeChecked: 'false',
-            createAccountShown: 'true',
-            openCreateAccount: 'false',
-            displayNameShown: 'false',
-            consumeServiceTicket: 'false',
-            initialFocus: 'true',
-            embedWidget: 'false',
-            generateExtraServiceTicket: 'true',
-            generateTwoExtraServiceTickets: 'true',
-            generateNoServiceTicket: 'false',
-            globalOptInShown: 'true',
-            globalOptInChecked: 'false',
-            mobile: 'false',
-            connectLegalTerms: 'true',
-            showTermsOfUse: 'false',
-            showPrivacyPolicy: 'false',
-            showConnectLegalAge: 'false',
-            locationPromptShown: 'true',
-            showPassword: 'true',
-            useCustomHeader: 'false'
+            embedWidget: 'true',
+            gauthHost: GarminPlatform.SSO_URL
         });
+
+        const signinParams = {
+            id: 'gauth-widget',
+            embedWidget: 'true',
+            gauthHost: GarminPlatform.SSO_EMBED_URL,
+            service: GarminPlatform.SSO_EMBED_URL,
+            source: GarminPlatform.SSO_EMBED_URL,
+            redirectAfterAccountLoginUrl: GarminPlatform.SSO_EMBED_URL,
+            redirectAfterAccountCreationUrl: GarminPlatform.SSO_EMBED_URL
+        };
+
+        // Step 1: Load the embed page to set initial cookies
+        const embedResponse = await fetch(`${GarminPlatform.SSO_EMBED_URL}?${embedParams}`, {
+            headers: {
+                'User-Agent': GarminPlatform.MOBILE_USER_AGENT,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5'
+            }
+        });
+
+        if (!embedResponse.ok) {
+            throw new Error(`Failed to load SSO embed: HTTP ${embedResponse.status}`);
+        }
+
+        this.parseSetCookies(embedResponse);
+        await embedResponse.text();
+
+        const params = new URLSearchParams(signinParams);
 
         const response = await fetch(`${GarminPlatform.SIGNIN_URL}?${params}`, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': GarminPlatform.MOBILE_USER_AGENT,
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.5',
+                'Cookie': this.getCookieString()
             }
         });
 
@@ -276,7 +276,8 @@ export class GarminPlatform {
         }
 
         return {
-            csrf: csrfToken
+            csrf: csrfToken,
+            signinParams
         };
     }
 
@@ -284,45 +285,20 @@ export class GarminPlatform {
      * Submit login credentials
      */
     async submitLogin(email, password, csrfData) {
-        const params = new URLSearchParams({
-            service: GarminPlatform.MODERN_URL,
-            webhost: GarminPlatform.MODERN_URL,
-            source: GarminPlatform.MODERN_URL,
-            redirectAfterAccountLoginUrl: GarminPlatform.MODERN_URL,
-            redirectAfterAccountCreationUrl: GarminPlatform.MODERN_URL,
-            gauthHost: GarminPlatform.SSO_URL,
-            locale: 'en_US',
+        const params = new URLSearchParams(csrfData.signinParams || {
             id: 'gauth-widget',
-            cssUrl: 'https://connect.garmin.com/gauth-custom-v1.2-min.css',
-            privacyStatementUrl: 'https://www.garmin.com/en-US/privacy/connect/',
-            clientId: 'GarminConnect',
-            rememberMeShown: 'true',
-            rememberMeChecked: 'false',
-            createAccountShown: 'true',
-            openCreateAccount: 'false',
-            displayNameShown: 'false',
-            consumeServiceTicket: 'false',
-            initialFocus: 'true',
-            embedWidget: 'false',
-            generateExtraServiceTicket: 'true',
-            generateTwoExtraServiceTickets: 'true',
-            generateNoServiceTicket: 'false',
-            globalOptInShown: 'true',
-            globalOptInChecked: 'false',
-            mobile: 'false',
-            connectLegalTerms: 'true',
-            showTermsOfUse: 'false',
-            showPrivacyPolicy: 'false',
-            showConnectLegalAge: 'false',
-            locationPromptShown: 'true',
-            showPassword: 'true',
-            useCustomHeader: 'false'
+            embedWidget: 'true',
+            gauthHost: GarminPlatform.SSO_EMBED_URL,
+            service: GarminPlatform.SSO_EMBED_URL,
+            source: GarminPlatform.SSO_EMBED_URL,
+            redirectAfterAccountLoginUrl: GarminPlatform.SSO_EMBED_URL,
+            redirectAfterAccountCreationUrl: GarminPlatform.SSO_EMBED_URL
         });
 
         const formData = new URLSearchParams({
             username: email,
             password: password,
-            embed: 'false',
+            embed: 'true',
             _csrf: csrfData.csrf
         });
 
@@ -330,7 +306,7 @@ export class GarminPlatform {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': GarminPlatform.MOBILE_USER_AGENT,
                 'Cookie': this.getCookieString(),
                 'Origin': 'https://sso.garmin.com',
                 'Referer': `${GarminPlatform.SIGNIN_URL}?${params}`
@@ -359,6 +335,9 @@ export class GarminPlatform {
         }
         if (!ticketMatch) {
             ticketMatch = responseText.match(/"ticket"\s*:\s*"([^"]+)"/);
+        }
+        if (!ticketMatch) {
+            ticketMatch = responseText.match(/embed\?ticket=([^"&\s]+)/);
         }
 
         if (!ticketMatch) {
@@ -616,12 +595,14 @@ export class GarminPlatform {
 
         const preauthResponse = await fetch(preauthUrl, {
             headers: {
-                'User-Agent': GarminPlatform.MOBILE_USER_AGENT
+                'User-Agent': GarminPlatform.MOBILE_USER_AGENT,
+                'Accept': 'application/x-www-form-urlencoded, text/plain, */*'
             }
         });
 
         if (!preauthResponse.ok) {
-            throw new Error(`OAuth preauthorization failed: HTTP ${preauthResponse.status}`);
+            const errorText = await preauthResponse.text();
+            throw new Error(`OAuth preauthorization failed: HTTP ${preauthResponse.status} ${errorText.substring(0, 200)}`);
         }
 
         const preauthText = await preauthResponse.text();
