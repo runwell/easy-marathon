@@ -102,7 +102,7 @@ export class GarminPlatform {
             });
 
             // Create session token (base64 encoded for transport)
-            const sessionToken = btoa(JSON.stringify({
+            const sessionToken = this.base64EncodeUtf8(JSON.stringify({
                 platform: 'garmin',
                 credentials: {
                     oauth1: session.oauth1,
@@ -577,6 +577,19 @@ export class GarminPlatform {
         );
         const signature = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(data));
         const bytes = new Uint8Array(signature);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
+    /**
+     * Base64 encode UTF-8 safely (handles non-Latin1)
+     */
+    base64EncodeUtf8(value) {
+        const encoder = new TextEncoder();
+        const bytes = encoder.encode(value);
         let binary = '';
         for (let i = 0; i < bytes.length; i++) {
             binary += String.fromCharCode(bytes[i]);

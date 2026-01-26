@@ -39,6 +39,17 @@ function jsonResponse(data, status = 200, env = {}) {
     });
 }
 
+// Decode a base64 session token to UTF-8 JSON
+function decodeSessionToken(token) {
+    const binary = atob(token);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    const jsonText = new TextDecoder().decode(bytes);
+    return JSON.parse(jsonText);
+}
+
 // Error response helper
 function errorResponse(message, status = 400, env = {}) {
     return jsonResponse({error: message}, status, env);
@@ -183,7 +194,7 @@ async function handleValidateSession(request, env) {
     const token = authHeader.substring(7);
 
     try {
-        const sessionData = JSON.parse(atob(token));
+        const sessionData = decodeSessionToken(token);
         const {platform, credentials, expiresAt} = sessionData;
 
         // Check expiration
@@ -227,7 +238,7 @@ async function handleGetActivities(request, env) {
     const debug = url.searchParams.get('debug') === 'true';
 
     try {
-        const sessionData = JSON.parse(atob(token));
+        const sessionData = decodeSessionToken(token);
         const {platform, credentials, authDebug} = sessionData;
 
         const PlatformClass = PLATFORMS[platform];
