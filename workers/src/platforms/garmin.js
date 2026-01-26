@@ -520,9 +520,12 @@ export class GarminPlatform {
             oauth_nonce: nonce,
             oauth_signature_method: 'HMAC-SHA1',
             oauth_timestamp: timestamp,
-            oauth_token: token,
             oauth_version: '1.0'
         };
+
+        if (token) {
+            oauthParams.oauth_token = token;
+        }
 
         const urlObj = new URL(url);
         const queryParams = {};
@@ -606,10 +609,14 @@ export class GarminPlatform {
             `&login-url=${encodeURIComponent(GarminPlatform.SSO_EMBED_URL)}` +
             `&accepts-mfa-tokens=true`;
 
+        const preauthAuth = await this.buildOAuth1Header('GET', preauthUrl);
+        const preauthCookies = this.getCookieString();
         const preauthResponse = await fetch(preauthUrl, {
             headers: {
                 'User-Agent': GarminPlatform.MOBILE_USER_AGENT,
-                'Accept': 'application/x-www-form-urlencoded, text/plain, */*'
+                'Accept': 'application/x-www-form-urlencoded, text/plain, */*',
+                'Authorization': preauthAuth,
+                'Cookie': preauthCookies
             }
         });
 
