@@ -1,5 +1,5 @@
 /**
- * Training Log Visualization
+ * Marathon Training Log Visualization
  * With Authentication Support
  */
 
@@ -21,11 +21,9 @@ const DOT_COLORS = {
 const RACES = {
     '2025-05-04': 'Flying Pig',
     '2025-05-18': 'Brooklyn Half',
-    '2025-09-27': 'Mill Race Half',
     '2025-10-12': 'Chicago',
     '2025-11-08': 'Monumental',
-    '2025-12-13': 'HC Louisville',
-    '2026-04-18': 'Carmel Half',
+    '2026-04-18': 'Carmel',
     '2026-04-25': 'KDF',
     '2026-05-31': 'RnR SD',
     '2026-11-01': 'NYC'
@@ -98,10 +96,15 @@ async function loadDataFromAPI() {
     `;
 
     try {
-        const startDate = `${currentYear}-01-01`;
-        const endDate = `${currentYear}-12-31`;
+        // Fetch all activities from January 1, 2025 to end of current year
+        const startDate = '2025-01-01';
+        const endDate = `${new Date().getFullYear()}-12-31`;
 
         const activities = await AuthService.fetchActivities(startDate, endDate);
+
+        // Show status message with activity count
+        showActivityStatus(activities.length, startDate, endDate);
+
         processAPIData(activities);
 
     } catch (error) {
@@ -118,6 +121,33 @@ async function loadDataFromAPI() {
                 </div>
             `;
         }
+    }
+}
+
+/**
+ * Show status message with activity count
+ */
+function showActivityStatus(count, startDate, endDate) {
+    // Remove existing status if any
+    const existingStatus = document.getElementById('activity-status');
+    if (existingStatus) existingStatus.remove();
+
+    const platform = AuthService.getPlatform() || 'API';
+    const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'activity-status';
+    statusDiv.className = 'activity-status';
+    statusDiv.innerHTML = `
+        <span class="status-icon">✓</span>
+        Loaded <strong>${count}</strong> activities from ${platformName} 
+        <span class="status-date">(${startDate} to ${endDate})</span>
+    `;
+
+    // Insert after header
+    const header = document.querySelector('header');
+    if (header && header.nextSibling) {
+        header.parentNode.insertBefore(statusDiv, header.nextSibling);
     }
 }
 
