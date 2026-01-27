@@ -35,7 +35,6 @@ const MIN_DOT_PX = 30;
 const MAX_DOT_PX = 80;
 
 // State
-let rawActivities = [];
 let dailySummaries = {};
 let globalMax = {duration: 0};
 let currentYear = new Date().getFullYear();
@@ -60,6 +59,14 @@ window.addEventListener('auth:login', () => {
 window.addEventListener('auth:logout', () => {
     initializeUI();
     showLoginPrompt();
+});
+
+window.addEventListener('activities:sync', () => {
+    if (AuthService.isLoggedIn()) {
+        loadDataFromAPI();
+    } else {
+        showLoginPrompt();
+    }
 });
 
 /**
@@ -102,13 +109,12 @@ async function loadDataFromAPI() {
         const startDate = '2025-01-01';
         const endDate = `${new Date().getFullYear()}-12-31`;
 
-        // Use debug mode to get raw response
-        const result = await fetchActivitiesWithDebug(startDate, endDate);
+        const activities = await AuthService.fetchActivities(startDate, endDate);
 
-        // Show status message with activity count and debug info
-        showActivityStatus(result.activities.length, startDate, endDate, result.debug);
+        // Show status message with activity count
+        showActivityStatus(activities.length, startDate, endDate);
 
-        processAPIData(result.activities);
+        processAPIData(activities);
 
     } catch (error) {
         console.error('Failed to load activities:', error);
@@ -128,69 +134,9 @@ async function loadDataFromAPI() {
 }
 
 /**
- * Fetch activities with debug information
- */
-async function fetchActivitiesWithDebug(startDate, endDate) {
-    const session = AuthService.getSession();
-    if (!session?.token) {
-        throw new Error('Not logged in');
-    }
-
-    const params = new URLSearchParams();
-    params.set('startDate', startDate);
-    params.set('endDate', endDate);
-    params.set('debug', 'true');  // Enable debug mode
-
-    const apiUrl = AuthService.getApiUrl();
-    const url = `${apiUrl}/api/activities?${params}`;
-
-    console.log('Fetching from:', url);
-
-    const response = await fetch(url, {
-        headers: {
-            'Authorization': `Bearer ${session.token}`
-        }
-    });
-
-    const responseText = await response.text();
-    console.log('Raw API response:', responseText.substring(0, 2000));
-
-    let data;
-    try {
-        data = JSON.parse(responseText);
-    } catch (e) {
-        throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
-    }
-
-    if (!response.ok) {
-        if (response.status === 401) {
-            AuthService.logout();
-            throw new Error('Session expired. Please login again.');
-        }
-        throw new Error(data.error || `API error: ${response.status}`);
-    }
-
-    // Build debug info from response
-    const debug = {
-        apiUrl: url,
-        status: response.status,
-        rawLength: responseText.length,
-        activityCount: data.activities?.length || 0,
-        sampleActivity: data.activities?.[0] ? JSON.stringify(data.activities[0]).substring(0, 300) : 'none',
-        // Include server-side debug info if available
-        serverDebug: data.debug || null
-    };
-
-    return {
-        activities: data.activities || [],
-        debug
-    };
-}
-
-/**
  * Show status message with activity count
  */
-function showActivityStatus(count, startDate, endDate, debug = null) {
+function showActivityStatus(count, startDate, endDate) {
     // Remove existing status if any
     const existingStatus = document.getElementById('activity-status');
     if (existingStatus) existingStatus.remove();
@@ -202,47 +148,11 @@ function showActivityStatus(count, startDate, endDate, debug = null) {
     statusDiv.id = 'activity-status';
     statusDiv.className = 'activity-status';
 
-    let debugHtml = '';
-    if (debug) {
-        let serverDebugHtml = '';
-        if (debug.serverDebug) {
-            const sd = debug.serverDebug;
-            serverDebugHtml = `
-                <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">
-                <p><strong>Server Debug Info:</strong></p>
-                <p><strong>Credential Keys:</strong> ${sd.credentialKeys?.join(', ') || 'none'}</p>
-                ${sd.error ? `<p style="color: #f87171;"><strong>Error:</strong> ${sd.error}</p>` : ''}
-                ${sd.htmlPreview ? `<p><strong>HTML Response (session expired?):</strong></p><pre>${escapeHtml(sd.htmlPreview)}</pre>` : ''}
-                <p><strong>Activity Fetch Steps:</strong></p>
-                <pre>${JSON.stringify(sd.steps, null, 2)}</pre>
-                ${sd.authDebug ? `
-                    <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">
-                    <p><strong>Login/Auth Debug (from when you signed in):</strong></p>
-                    <pre>${JSON.stringify(sd.authDebug, null, 2)}</pre>
-                ` : ''}
-            `;
-        }
-
-        debugHtml = `
-            <button class="debug-toggle-btn" onclick="toggleDebugInfo()">Show Debug Info</button>
-            <div id="debug-info" class="debug-info" style="display: none;">
-                <p><strong>API URL:</strong> ${debug.apiUrl}</p>
-                <p><strong>Status:</strong> ${debug.status}</p>
-                <p><strong>Response size:</strong> ${debug.rawLength} bytes</p>
-                <p><strong>Activities in response:</strong> ${debug.activityCount}</p>
-                <p><strong>Sample activity:</strong></p>
-                <pre>${debug.sampleActivity}</pre>
-                ${serverDebugHtml}
-            </div>
-        `;
-    }
-
     statusDiv.innerHTML = `
         <div class="status-main">
             <span class="status-icon">${count > 0 ? '✓' : '⚠'}</span>
             Loaded <strong>${count}</strong> activities from ${platformName} 
             <span class="status-date">(${startDate} to ${endDate})</span>
-            ${debugHtml}
         </div>
     `;
 
@@ -251,32 +161,6 @@ function showActivityStatus(count, startDate, endDate, debug = null) {
     if (header && header.nextSibling) {
         header.parentNode.insertBefore(statusDiv, header.nextSibling);
     }
-}
-
-/**
- * Toggle debug info visibility
- */
-window.toggleDebugInfo = function () {
-    const debugInfo = document.getElementById('debug-info');
-    const btn = document.querySelector('.debug-toggle-btn');
-    if (debugInfo) {
-        if (debugInfo.style.display === 'none') {
-            debugInfo.style.display = 'block';
-            btn.textContent = 'Hide Debug Info';
-        } else {
-            debugInfo.style.display = 'none';
-            btn.textContent = 'Show Debug Info';
-        }
-    }
-};
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 /**
@@ -303,7 +187,6 @@ function showLoginPrompt() {
  * Process activities from API
  */
 function processAPIData(activities) {
-    rawActivities = [];
     dailySummaries = {};
     globalMax = {duration: 0};
     availableYears = new Set();
@@ -374,109 +257,6 @@ function processAPIData(activities) {
     renderVisualization();
 }
 
-/**
- * Process CSV data (for demo/fallback)
- */
-function processCSVData(csvText) {
-    const lines = csvText.split('\n');
-    if (lines.length < 2) return;
-
-    const headers = parseCSVLine(lines[0]);
-    const headerMap = {};
-    headers.forEach((h, i) => headerMap[h.trim()] = i);
-
-    if (!('start_time' in headerMap && 'activity_type' in headerMap)) {
-        alert('Invalid CSV format. Missing start_time or activity_type.');
-        return;
-    }
-
-    rawActivities = [];
-    dailySummaries = {};
-    globalMax = {duration: 0};
-    availableYears = new Set();
-    availableYears.add(currentYear);
-
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const row = parseCSVLine(line);
-        if (row.length !== headers.length) continue;
-
-        const activity = {
-            startTime: row[headerMap['start_time']].trim(),
-            type: row[headerMap['activity_type']].trim(),
-            distance: parseFloat(row[headerMap['distance_meters']] || 0),
-            duration: parseFloat(row[headerMap['duration_seconds']] || 0)
-        };
-
-        if (isNaN(activity.distance)) activity.distance = 0;
-        if (isNaN(activity.duration)) activity.duration = 0;
-
-        let category = null;
-        if (ACTIVITY_TYPES.RUN.includes(activity.type)) category = 'RUN';
-        else if (ACTIVITY_TYPES.RIDE.includes(activity.type)) category = 'RIDE';
-        else if (ACTIVITY_TYPES.STRENGTH.includes(activity.type)) category = 'STRENGTH';
-
-        if (category) {
-            const rawDatePart = activity.startTime.substring(0, 10);
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDatePart)) continue;
-
-            const dateObj = parseLocal(rawDatePart);
-            availableYears.add(dateObj.getFullYear());
-
-            if (isNaN(dateObj.getTime())) continue;
-
-            const date = formatLocal(dateObj);
-
-            if (!dailySummaries[date]) {
-                dailySummaries[date] = {
-                    date: date,
-                    runDistance: 0,
-                    runDuration: 0,
-                    rideDuration: 0,
-                    rideDistance: 0,
-                    strengthDuration: 0,
-                    activities: []
-                };
-            }
-
-            dailySummaries[date].activities.push(activity);
-
-            if (category === 'RUN') {
-                dailySummaries[date].runDistance += activity.distance;
-                dailySummaries[date].runDuration += activity.duration;
-            } else if (category === 'RIDE') {
-                dailySummaries[date].rideDuration += activity.duration;
-                dailySummaries[date].rideDistance += activity.distance;
-            } else if (category === 'STRENGTH') {
-                dailySummaries[date].strengthDuration += activity.duration;
-            }
-        }
-    }
-
-    Object.values(dailySummaries).forEach(day => {
-        if (day.runDuration > globalMax.duration) globalMax.duration = day.runDuration;
-        if (day.rideDuration > globalMax.duration) globalMax.duration = day.rideDuration;
-        if (day.strengthDuration > globalMax.duration) globalMax.duration = day.strengthDuration;
-    });
-
-    updateYearControls();
-    renderVisualization();
-}
-
-function parseCSVLine(text) {
-    const re_value = /(?!\s*$)\s*(?:'([^']*)'|"([^"]*)"|([^,'"]*))\s*(?:,|$)/g;
-    const a = [];
-    text.replace(re_value, function (m0, m1, m2, m3) {
-        if (m1 !== undefined) a.push(m1.replace(/\\'/g, "'"));
-        else if (m2 !== undefined) a.push(m2.replace(/\\"/g, '"'));
-        else if (m3 !== undefined) a.push(m3);
-        return '';
-    });
-    if (/,\s*$/.test(text)) a.push('');
-    return a;
-}
 
 function parseLocal(s) {
     const [y, m, d] = s.split('-').map(Number);

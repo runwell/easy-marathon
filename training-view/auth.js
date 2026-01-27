@@ -6,7 +6,6 @@
  */
 
 // API Configuration
-// Update this URL after deploying Cloudflare Workers
 const API_BASE_URL = 'https://easy-marathon-api.artcmd1.workers.dev';
 
 // localStorage keys
@@ -458,6 +457,7 @@ export const UserMenu = {
           <span class="user-platform">${this.getPlatformIcon(platform)}</span>
           <span class="user-name">${displayName}</span>
         </div>
+        <button class="user-sync-btn" id="sync-btn">Sync</button>
         <button class="user-logout-btn" id="logout-btn">Logout</button>
       `;
         } else {
@@ -487,8 +487,12 @@ export const UserMenu = {
     setup() {
         const loginBtn = document.getElementById('login-btn');
         const logoutBtn = document.getElementById('logout-btn');
+        const syncBtn = document.getElementById('sync-btn');
 
         loginBtn?.addEventListener('click', () => LoginModal.show());
+        syncBtn?.addEventListener('click', () => {
+            window.dispatchEvent(new CustomEvent('activities:sync'));
+        });
 
         logoutBtn?.addEventListener('click', async () => {
             await AuthService.logout();
@@ -496,6 +500,3 @@ export const UserMenu = {
         });
     }
 };
-
-// Export for use in script.js
-export default {AuthService, LoginModal, UserMenu};
