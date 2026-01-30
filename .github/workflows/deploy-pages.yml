@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - master
   workflow_dispatch:
 
 permissions:
@@ -17,10 +16,11 @@ concurrency:
 
 jobs:
   deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,10 +30,24 @@ jobs:
         with:
           enablement: true
 
+      - name: Prepare site directory
+        run: |
+          mkdir -p _site
+          cp index.html style.css _site/
+          mkdir -p _site/50states-tracker
+          cp -r 50states-tracker/*.html 50states-tracker/*.css 50states-tracker/*.js _site/50states-tracker/
+          cp -r 50states-tracker/collected-us-marathon.csv _site/50states-tracker/
+          mkdir -p _site/pace-calculator
+          cp -r pace-calculator/*.html pace-calculator/*.css pace-calculator/*.js _site/pace-calculator/
+          mkdir -p _site/race-calendar
+          cp -r race-calendar/*.html race-calendar/*.css race-calendar/*.js _site/race-calendar/
+          mkdir -p _site/training-view
+          cp -r training-view/*.html training-view/*.css training-view/*.js _site/training-view/
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment

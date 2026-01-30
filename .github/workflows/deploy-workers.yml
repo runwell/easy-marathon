@@ -4,10 +4,9 @@ on:
   push:
     branches:
       - main
-      - master
     paths:
       - 'workers/**'
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
 concurrency:
   group: "workers"
