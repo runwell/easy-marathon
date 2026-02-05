@@ -43,6 +43,8 @@ jobs:
           cp -r race-calendar/*.html race-calendar/*.css race-calendar/*.js _site/race-calendar/
           mkdir -p _site/training-view
           cp -r training-view/*.html training-view/*.css training-view/*.js _site/training-view/
+          mkdir -p _site/world-athletics
+          cp -r world-athletics/*.html world-athletics/*.css world-athletics/*.js _site/world-athletics/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

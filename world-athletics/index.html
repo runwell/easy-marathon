@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Athletics Records</title>
+    <link rel="icon" href="../icon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="container">
+    <header>
+        <h1>World Athletics Records</h1>
+        <p>Top 10 performances across distances</p>
+    </header>
+
+    <!-- Tab Navigation -->
+    <div class="tab-container">
+        <button class="tab-btn active" data-gender="men">Men</button>
+        <button class="tab-btn" data-gender="women">Women</button>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="columns-container">
+        <div class="column" id="alltime-column">
+            <h2>All-Time Records</h2>
+            <div class="loading">Loading...</div>
+        </div>
+        <div class="column" id="recent-column">
+            <h2>Recent Two Years</h2>
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <footer style="margin-top: 40px; text-align: center; padding-bottom: 20px; color: #888; font-size: 12px;">
+        <a href="../">← Back to Home</a>
+        <p style="margin-top: 8px;">Built for runners, by runners.</p>
+    </footer>
+</div>
+<script src="script.js"></script>
+</body>
+
+</html>
