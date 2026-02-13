@@ -84,7 +84,8 @@ async function loadMarathonOptions() {
                 finishers: columns[4] || 'N/A',
                 courseType: columns[5] || 'Unknown',
                 elevationGain: columns[6] || '-',
-                elevationLoss: columns[7] || '-'
+                elevationLoss: columns[7] || '-',
+                date: columns[8]
             };
 
             if (!marathonOptionsByState[stateCode]) {
@@ -253,7 +254,7 @@ function renderMarathonOptions(stateCode) {
             <div class="marathon-option-header">
                 <span class="marathon-option-name">${marathon.name}</span>
             </div>
-            <div class="marathon-option-city">${marathon.city}</div>
+            <div class="marathon-option-city">${marathon.city} · ${marathon.date}</div>
             <div class="marathon-option-details">
                 <span class="marathon-option-tag course-type">${marathon.courseType}</span>
                 <span class="marathon-option-tag finishers">${marathon.finishers} finishers</span>

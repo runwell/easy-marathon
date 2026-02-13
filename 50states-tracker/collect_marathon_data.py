@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Collect US Marathon Data from findmymarathon.com
 
@@ -9,7 +8,7 @@ It collects top 3 certified races per state (by finisher count), filtering out "
 import asyncio
 import csv
 import re
-import time
+
 from playwright.async_api import async_playwright
 
 # US States with their codes
@@ -31,50 +30,6 @@ US_STATES = {
 
 # Valid course types (exclude "Very Hilly")
 VALID_COURSE_TYPES = ["Flat", "Mostly Flat", "Downhill", "Hilly", "Rolling Hills"]
-
-
-async def extract_races_from_state_page(page):
-    """Extract race data from a state calendar page."""
-
-    # JavaScript to extract race data from the page
-    races_data = await page.evaluate('''
-    () => {
-        const races = [];
-        // Find all race rows - they are in table rows or list items
-        const raceElements = document.querySelectorAll('tr.racerow, .race-row, .marathon-row');
-        
-        // If no specific race rows, try to find race entries in the page content
-        if (raceElements.length === 0) {
-            // Try to find race cards or entries
-            const raceCards = document.querySelectorAll('[class*="race"], [class*="marathon"], table tbody tr');
-            raceCards.forEach((card) => {
-                const text = card.innerText || card.textContent;
-                if (text && text.includes('Finisher')) {
-                    races.push({
-                        html: card.outerHTML,
-                        text: text
-                    });
-                }
-            });
-        } else {
-            raceElements.forEach((el) => {
-                races.push({
-                    html: el.outerHTML,
-                    text: el.innerText || el.textContent
-                });
-            });
-        }
-        
-        return races;
-    }
-    ''')
-
-    return races_data
-
-
-async def get_page_content(page):
-    """Get the full page content for parsing."""
-    return await page.content()
 
 
 async def extract_elevation_data(page, race_name):
@@ -100,7 +55,7 @@ async def extract_elevation_data(page, race_name):
             () => {
                 const elevSection = document.querySelector('#Elevation, [id*="elevation"], .elevation');
                 if (elevSection) return elevSection.innerText;
-                
+
                 // Try to find elevation mentions in the page
                 const allText = document.body.innerText;
                 const elevMatch = allText.match(/elevation[\\s\\S]*?(?:gain|loss)[\\s\\S]*?\\d+/gi);
@@ -128,26 +83,26 @@ async def parse_races_from_html(page, state, state_code):
     races = await page.evaluate('''
     () => {
         const results = [];
-        
+
         // Get all table rows
         const rows = document.querySelectorAll('tr');
-        
+
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             const cells = row.cells;
-            
+
             // Skip rows without enough cells (header rows, etc.)
             if (!cells || cells.length < 4) continue;
-            
+
             // First cell contains marathon name and city
             // Spotlight marathons: h1 = name, h3 = city
             // Regular marathons: h3 = name, h4 = city
             const h1Element = cells[0].querySelector('h1');
             const h3Element = cells[0].querySelector('h3');
             const h4Element = cells[0].querySelector('h4');
-            
+
             let nameElement, cityElement;
-            
+
             if (h1Element) {
                 // Spotlight marathon
                 nameElement = h1Element;
@@ -159,9 +114,9 @@ async def parse_races_from_html(page, state, state_code):
             } else {
                 continue;  // No name element found
             }
-            
+
             if (!nameElement) continue;
-            
+
             // Extract race name from the link
             const raceLink = nameElement.querySelector('a[href*="race-detail"]');
             let raceName = '';
@@ -170,20 +125,27 @@ async def parse_races_from_html(page, state, state_code):
             } else {
                 raceName = nameElement.innerText.trim();
             }
-            
+
             // Skip if no race name
             if (!raceName) continue;
-            
+
             // Extract city from city element (format: "City, STATE")
             let city = '';
+            let raceDate = '';
             if (cityElement) {
                 const cityText = cityElement.innerText.trim();
                 const cityParts = cityText.split(',');
                 if (cityParts.length > 0) {
                     city = cityParts[0].trim();
                 }
+
+                // Extract date from span[itemprop="startDate"]
+                const dateSpan = cityElement.querySelector('span[itemprop="startDate"]');
+                if (dateSpan) {
+                    raceDate = dateSpan.getAttribute('content') || dateSpan.innerText.trim();
+                }
             }
-            
+
             // Second cell (index 1) contains course type in h4
             let courseType = '';
             if (cells[1]) {
@@ -194,15 +156,15 @@ async def parse_races_from_html(page, state, state_code):
                     courseType = cells[1].innerText.trim();
                 }
             }
-            
+
             // Normalize "Very Flat" to "Flat" per requirements
             if (courseType === 'Very Flat') {
                 courseType = 'Flat';
             }
-            
+
             // Check for Very Hilly - skip if found
             if (courseType === 'Very Hilly') continue;
-            
+
             // Fourth cell (index 3) contains finishers count
             let finishers = 0;
             if (cells[3]) {
@@ -212,7 +174,7 @@ async def parse_races_from_html(page, state, state_code):
                     finishers = parseInt(finisherMatch[1].replace(/,/g, ''));
                 }
             }
-            
+
             // Fifth cell (index 4) may indicate "Course is Not Certified"
             if (cells[4]) {
                 const certText = cells[4].innerText || '';
@@ -220,21 +182,22 @@ async def parse_races_from_html(page, state, state_code):
                     continue;  // Skip non-certified courses
                 }
             }
-            
-            // Only add if we have finisher data
-            if (finishers === 0) continue;
-            
+
+            // Only add if we have finisher data and at least 100 finishers
+            if (finishers < 100) continue;
+
             results.push({
                 name: raceName,
                 city: city,
+                date: raceDate || '-',
                 finishers: finishers,
                 courseType: courseType || '-'
             });
         }
-        
+
         // Sort by finishers descending
         results.sort((a, b) => b.finishers - a.finishers);
-        
+
         return results;
     }
     ''')
@@ -242,7 +205,7 @@ async def parse_races_from_html(page, state, state_code):
     return races
 
 
-async def collect_state_data(page, state, state_code, max_races=3):
+async def collect_state_data(page, state, state_code, max_races=5):
     """Collect marathon data for a single state."""
     print(f"Processing {state} ({state_code})...")
 
@@ -271,6 +234,7 @@ async def collect_state_data(page, state, state_code, max_races=3):
                 'State_Code': state_code,
                 'Marathon Name': race['name'],
                 'City': race['city'],
+                'Date': race['date'],
                 'Finishers': race['finishers'],
                 'Course Type': race['courseType'],
                 'Elevation Gain (ft)': gain,
@@ -311,9 +275,9 @@ async def main():
         await browser.close()
 
     # Save to CSV
-    output_file = "collected-us-marathon.csv"
+    output_file = "50states-tracker/collected-us-marathon.csv"
     fieldnames = ['State', 'State_Code', 'Marathon Name', 'City', 'Finishers',
-                  'Course Type', 'Elevation Gain (ft)', 'Elevation Loss (ft)']
+                  'Course Type', 'Elevation Gain (ft)', 'Elevation Loss (ft)', 'Date']
 
     with open(output_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)

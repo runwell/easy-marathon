@@ -1,6 +1,6 @@
 // World Athletics Records - Data fetching and display
 
-const JSON_URL = 'https://artcmd.github.io/marathon-collections/world-athletics/records.json';
+const JSON_URL = 'https://artcmd.github.io/marathon-collection/world-athletics/records.json';
 
 let recordsData = null;
 let currentGender = 'men';
