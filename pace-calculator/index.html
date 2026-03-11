@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Running Pace Calculator - Calculate your running pace, time, or distance with ease"
+      content="Running Pace Calculator - Calculate your running pace, time, or distance"
     />
-    <title>Running Pace Calculator</title>
+    <title>Pace Calculator</title>
     <link rel="icon" href="../icon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -21,20 +21,7 @@
   <body>
     <div class="app-container">
       <header class="header">
-        <div class="logo">
-          <svg
-            class="logo-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-          <h1>Pace Calculator</h1>
-        </div>
-        <p class="subtitle">Calculate your running pace, time, or distance</p>
+        <h1><a href="../">Pace Calculator</a></h1>
       </header>
 
       <main class="main-content">
@@ -66,16 +53,10 @@
               <div class="preset-distances">
                 <button class="distance-btn" data-distance="5">5K</button>
                 <button class="distance-btn" data-distance="10">10K</button>
-                <button class="distance-btn" data-distance="21.0975">
-                  Half Marathon
-                </button>
-                <button class="distance-btn" data-distance="42.195">
-                  Marathon
-                </button>
+                <button class="distance-btn" data-distance="21.0975">Half Marathon</button>
+                <button class="distance-btn" data-distance="42.195">Marathon</button>
                 <button class="distance-btn" data-distance="50">50K</button>
-                <button class="distance-btn active" data-distance="custom">
-                  Custom
-                </button>
+                <button class="distance-btn active" data-distance="custom">Custom</button>
               </div>
               <div class="custom-distance" id="custom-distance-input">
                 <input
@@ -99,35 +80,17 @@
             <label class="input-label">Time</label>
             <div class="time-inputs">
               <div class="time-field">
-                <input
-                  type="number"
-                  id="hours"
-                  placeholder="0"
-                  min="0"
-                  max="99"
-                />
+                <input type="number" id="hours" placeholder="0" min="0" max="99" />
                 <span class="time-label">hours</span>
               </div>
               <span class="time-separator">:</span>
               <div class="time-field">
-                <input
-                  type="number"
-                  id="minutes"
-                  placeholder="0"
-                  min="0"
-                  max="59"
-                />
+                <input type="number" id="minutes" placeholder="0" min="0" max="59" />
                 <span class="time-label">minutes</span>
               </div>
               <span class="time-separator">:</span>
               <div class="time-field">
-                <input
-                  type="number"
-                  id="seconds"
-                  placeholder="0"
-                  min="0"
-                  max="59"
-                />
+                <input type="number" id="seconds" placeholder="0" min="0" max="59" />
                 <span class="time-label">seconds</span>
               </div>
             </div>
@@ -138,24 +101,12 @@
             <label class="input-label">Pace</label>
             <div class="pace-inputs">
               <div class="pace-field">
-                <input
-                  type="number"
-                  id="pace-minutes"
-                  placeholder="0"
-                  min="0"
-                  max="59"
-                />
+                <input type="number" id="pace-minutes" placeholder="0" min="0" max="59" />
                 <span class="pace-label">min</span>
               </div>
               <span class="pace-separator">:</span>
               <div class="pace-field">
-                <input
-                  type="number"
-                  id="pace-seconds"
-                  placeholder="0"
-                  min="0"
-                  max="59"
-                />
+                <input type="number" id="pace-seconds" placeholder="0" min="0" max="59" />
                 <span class="pace-label">sec</span>
               </div>
               <div class="pace-field">

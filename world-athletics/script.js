@@ -1,40 +1,39 @@
 // World Athletics Records - Data fetching and display
 
-const JSON_URL =
-  "https://raw.githubusercontent.com/artcmd/easy-marathon/main/data/records.json";
+const JSON_URL = 'https://raw.githubusercontent.com/artcmd/easy-marathon/main/data/records.json';
 
 let recordsData = null;
-let currentGender = "men";
+let currentGender = 'men';
 
 // Distance display names
 const DISTANCE_LABELS = {
-  5000: "5000m",
-  10000: "10000m",
-  "half mara": "Half Marathon",
-  marathon: "Marathon",
+  5000: '5000m',
+  10000: '10000m',
+  'half mara': 'Half Marathon',
+  marathon: 'Marathon',
 };
 
 // Region display names
 const REGION_LABELS = {
-  world: "\u{1F30D} World",
-  usa: "\u{1F1FA}\u{1F1F8} USA",
-  japan: "\u{1F1EF}\u{1F1F5} Japan",
+  world: '\u{1F30D} World',
+  usa: '\u{1F1FA}\u{1F1F8} USA',
+  japan: '\u{1F1EF}\u{1F1F5} Japan',
 };
 
 // Initialize on page load
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener('DOMContentLoaded', () => {
   setupTabListeners();
   fetchRecords();
 });
 
 // Set up tab button listeners
 function setupTabListeners() {
-  const tabButtons = document.querySelectorAll(".tab-btn");
+  const tabButtons = document.querySelectorAll('.tab-btn');
   tabButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener('click', () => {
       // Update active state
-      tabButtons.forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
+      tabButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
 
       // Update current gender and re-render
       currentGender = btn.dataset.gender;
@@ -55,39 +54,35 @@ async function fetchRecords() {
     recordsData = await response.json();
     renderRecords();
   } catch (error) {
-    console.error("Error fetching records:", error);
-    document.getElementById("alltime-column").innerHTML =
+    console.error('Error fetching records:', error);
+    document.getElementById('alltime-column').innerHTML =
       '<h2>All-Time Records</h2><div class="loading">Error loading data</div>';
-    document.getElementById("recent-column").innerHTML =
+    document.getElementById('recent-column').innerHTML =
       '<h2>Recent Two Years</h2><div class="loading">Error loading data</div>';
   }
 }
 
 // Render records for current gender
 function renderRecords() {
-  const alltimeColumn = document.getElementById("alltime-column");
-  const recentColumn = document.getElementById("recent-column");
+  const alltimeColumn = document.getElementById('alltime-column');
+  const recentColumn = document.getElementById('recent-column');
 
   // Render All-Time records
-  alltimeColumn.innerHTML = "<h2>All-Time Records</h2>";
+  alltimeColumn.innerHTML = '<h2>All-Time Records</h2>';
   if (recordsData.allTime && recordsData.allTime[currentGender]) {
-    alltimeColumn.innerHTML += renderRegionTables(
-      recordsData.allTime[currentGender],
-    );
+    alltimeColumn.innerHTML += renderRegionTables(recordsData.allTime[currentGender]);
   }
 
   // Render Recent Two Years records
-  recentColumn.innerHTML = "<h2>Recent Two Years</h2>";
+  recentColumn.innerHTML = '<h2>Recent Two Years</h2>';
   if (recordsData.recent2Years && recordsData.recent2Years[currentGender]) {
-    recentColumn.innerHTML += renderRegionTables(
-      recordsData.recent2Years[currentGender],
-    );
+    recentColumn.innerHTML += renderRegionTables(recordsData.recent2Years[currentGender]);
   }
 }
 
 // Render tables for all regions (world, usa, japan)
 function renderRegionTables(genderData) {
-  let html = "";
+  let html = '';
 
   for (const [region, records] of Object.entries(genderData)) {
     if (!REGION_LABELS[region]) continue;
@@ -131,25 +126,25 @@ function renderTable(records) {
             <tr>
                 <td>${index + 1}</td>
                 <td class="stacked-cell">
-                    <span class="time">${record["5000"] || "-"}</span>
-                    <span class="athlete" title="${record["Athlete1"] || ""}">${record["Athlete1"] || "-"}</span>
+                    <span class="time">${record['5000'] || '-'}</span>
+                    <span class="athlete" title="${record['Athlete1'] || ''}">${record['Athlete1'] || '-'}</span>
                 </td>
                 <td class="stacked-cell">
-                    <span class="time">${record["10000"] || "-"}</span>
-                    <span class="athlete" title="${record["Athlete2"] || ""}">${record["Athlete2"] || "-"}</span>
+                    <span class="time">${record['10000'] || '-'}</span>
+                    <span class="athlete" title="${record['Athlete2'] || ''}">${record['Athlete2'] || '-'}</span>
                 </td>
                 <td class="stacked-cell">
-                    <span class="time">${record["half mara"] || "-"}</span>
-                    <span class="athlete" title="${record["Athlete3"] || ""}">${record["Athlete3"] || "-"}</span>
+                    <span class="time">${record['half mara'] || '-'}</span>
+                    <span class="athlete" title="${record['Athlete3'] || ''}">${record['Athlete3'] || '-'}</span>
                 </td>
                 <td class="stacked-cell">
-                    <span class="time">${record["marathon"] || "-"}</span>
-                    <span class="athlete" title="${record["Athlete4"] || ""}">${record["Athlete4"] || "-"}</span>
+                    <span class="time">${record['marathon'] || '-'}</span>
+                    <span class="athlete" title="${record['Athlete4'] || ''}">${record['Athlete4'] || '-'}</span>
                 </td>
             </tr>
         `;
   });
 
-  html += "</tbody></table>";
+  html += '</tbody></table>';
   return html;
 }

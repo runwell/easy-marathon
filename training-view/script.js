@@ -3,32 +3,32 @@
  * With Authentication Support
  */
 
-import { AuthService, LoginModal, UserMenu } from "./auth.js";
+import { AuthService, LoginModal, UserMenu } from './auth.js';
 
 // Configuration
 const ACTIVITY_TYPES = {
-  RUN: ["running", "treadmill_running"],
-  RIDE: ["cycling", "indoor_cycling", "ride"],
-  STRENGTH: ["weight_training", "strength_training"],
+  RUN: ['running', 'treadmill_running'],
+  RIDE: ['cycling', 'indoor_cycling', 'ride'],
+  STRENGTH: ['weight_training', 'strength_training'],
 };
 
 const DOT_COLORS = {
-  RUN: "#22c55e",
-  RIDE: "#3b82f6",
-  STRENGTH: "#9ca3af",
+  RUN: '#22c55e',
+  RIDE: '#3b82f6',
+  STRENGTH: '#9ca3af',
 };
 
 const RACES = {
-  "2025-05-04": "Flying Pig",
-  "2025-05-18": "Brooklyn Half",
-  "2025-10-12": "Chicago",
-  "2025-11-08": "Monumental",
-  "2026-04-18": "Carmel",
-  "2026-04-20": "Boston",
-  "2026-04-25": "KDF",
-  "2026-05-31": "RnR SD",
-  "2026-10-11": "Chicago",
-  "2026-11-01": "NYC",
+  '2025-05-04': 'Flying Pig',
+  '2025-05-18': 'Brooklyn Half',
+  '2025-10-12': 'Chicago',
+  '2025-11-08': 'Monumental',
+  '2026-04-18': 'Carmel',
+  '2026-04-20': 'Boston',
+  '2026-04-25': 'KDF',
+  '2026-05-31': 'RnR SD',
+  '2026-10-11': 'Chicago',
+  '2026-11-01': 'NYC',
 };
 
 const MIN_DOT_PX = 30;
@@ -41,29 +41,27 @@ let currentYear = new Date().getFullYear();
 let availableYears = new Set();
 
 // DOM Elements
-const visualizationContainer = document.getElementById(
-  "visualizationContainer",
-);
-const userMenuContainer = document.getElementById("user-menu-container");
+const visualizationContainer = document.getElementById('visualizationContainer');
+const userMenuContainer = document.getElementById('user-menu-container');
 
 // Initialize app
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener('DOMContentLoaded', () => {
   initializeUI();
   loadData();
 });
 
 // Listen for auth events
-window.addEventListener("auth:login", () => {
+window.addEventListener('auth:login', () => {
   initializeUI();
   loadDataFromAPI();
 });
 
-window.addEventListener("auth:logout", () => {
+window.addEventListener('auth:logout', () => {
   initializeUI();
   showLoginPrompt();
 });
 
-window.addEventListener("activities:sync", () => {
+window.addEventListener('activities:sync', () => {
   if (AuthService.isLoggedIn()) {
     loadDataFromAPI();
   } else {
@@ -77,7 +75,7 @@ window.addEventListener("activities:sync", () => {
 function initializeUI() {
   // Render user menu
   if (userMenuContainer) {
-    userMenuContainer.innerHTML = "";
+    userMenuContainer.innerHTML = '';
     const menu = UserMenu.create();
     userMenuContainer.appendChild(menu);
     UserMenu.setup();
@@ -108,7 +106,7 @@ async function loadDataFromAPI() {
 
   try {
     // Fetch all activities from January 1, 2025 to end of current year
-    const startDate = "2025-01-01";
+    const startDate = '2025-01-01';
     const endDate = `${new Date().getFullYear()}-12-31`;
 
     const activities = await AuthService.fetchActivities(startDate, endDate);
@@ -118,12 +116,9 @@ async function loadDataFromAPI() {
 
     processAPIData(activities);
   } catch (error) {
-    console.error("Failed to load activities:", error);
+    console.error('Failed to load activities:', error);
 
-    if (
-      error.message.includes("Session expired") ||
-      error.message.includes("Not logged in")
-    ) {
+    if (error.message.includes('Session expired') || error.message.includes('Not logged in')) {
       showLoginPrompt();
     } else {
       visualizationContainer.innerHTML = `
@@ -142,26 +137,26 @@ async function loadDataFromAPI() {
  */
 function showActivityStatus(count, startDate, endDate) {
   // Remove existing status if any
-  const existingStatus = document.getElementById("activity-status");
+  const existingStatus = document.getElementById('activity-status');
   if (existingStatus) existingStatus.remove();
 
-  const platform = AuthService.getPlatform() || "API";
+  const platform = AuthService.getPlatform() || 'API';
   const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
 
-  const statusDiv = document.createElement("div");
-  statusDiv.id = "activity-status";
-  statusDiv.className = "activity-status";
+  const statusDiv = document.createElement('div');
+  statusDiv.id = 'activity-status';
+  statusDiv.className = 'activity-status';
 
   statusDiv.innerHTML = `
         <div class="status-main">
-            <span class="status-icon">${count > 0 ? "✓" : "⚠"}</span>
+            <span class="status-icon">${count > 0 ? '✓' : '⚠'}</span>
             Loaded <strong>${count}</strong> activities from ${platformName} 
             <span class="status-date">(${startDate} to ${endDate})</span>
         </div>
     `;
 
   // Insert after header
-  const header = document.querySelector("header");
+  const header = document.querySelector('header');
   if (header && header.nextSibling) {
     header.parentNode.insertBefore(statusDiv, header.nextSibling);
   }
@@ -182,7 +177,7 @@ function showLoginPrompt() {
         </div>
     `;
 
-  document.getElementById("show-login-btn")?.addEventListener("click", () => {
+  document.getElementById('show-login-btn')?.addEventListener('click', () => {
     LoginModal.show();
   });
 }
@@ -197,18 +192,17 @@ function processAPIData(activities) {
   availableYears.add(currentYear);
 
   activities.forEach((activity) => {
-    const type = activity.type?.toLowerCase() || "";
+    const type = activity.type?.toLowerCase() || '';
     let category = null;
 
-    if (type.includes("running") || type === "running") category = "RUN";
-    else if (type.includes("cycling") || type === "cycling") category = "RIDE";
-    else if (type.includes("strength") || type === "strength")
-      category = "STRENGTH";
+    if (type.includes('running') || type === 'running') category = 'RUN';
+    else if (type.includes('cycling') || type === 'cycling') category = 'RIDE';
+    else if (type.includes('strength') || type === 'strength') category = 'STRENGTH';
 
     if (!category) return;
 
     // Parse date
-    const startTime = activity.startTime || "";
+    const startTime = activity.startTime || '';
     const rawDatePart = startTime.substring(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDatePart)) return;
 
@@ -240,25 +234,22 @@ function processAPIData(activities) {
 
     dailySummaries[date].activities.push(activityData);
 
-    if (category === "RUN") {
+    if (category === 'RUN') {
       dailySummaries[date].runDistance += activityData.distance;
       dailySummaries[date].runDuration += activityData.duration;
-    } else if (category === "RIDE") {
+    } else if (category === 'RIDE') {
       dailySummaries[date].rideDuration += activityData.duration;
       dailySummaries[date].rideDistance += activityData.distance;
-    } else if (category === "STRENGTH") {
+    } else if (category === 'STRENGTH') {
       dailySummaries[date].strengthDuration += activityData.duration;
     }
   });
 
   // Calculate max values
   Object.values(dailySummaries).forEach((day) => {
-    if (day.runDuration > globalMax.duration)
-      globalMax.duration = day.runDuration;
-    if (day.rideDuration > globalMax.duration)
-      globalMax.duration = day.rideDuration;
-    if (day.strengthDuration > globalMax.duration)
-      globalMax.duration = day.strengthDuration;
+    if (day.runDuration > globalMax.duration) globalMax.duration = day.runDuration;
+    if (day.rideDuration > globalMax.duration) globalMax.duration = day.rideDuration;
+    if (day.strengthDuration > globalMax.duration) globalMax.duration = day.strengthDuration;
   });
 
   updateYearControls();
@@ -266,19 +257,19 @@ function processAPIData(activities) {
 }
 
 function parseLocal(s) {
-  const [y, m, d] = s.split("-").map(Number);
+  const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
 }
 
 function formatLocal(d) {
   const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
 function renderVisualization() {
-  visualizationContainer.innerHTML = "";
+  visualizationContainer.innerHTML = '';
 
   const startDate = new Date(currentYear, 0, 1);
   const endDate = new Date(currentYear, 11, 31);
@@ -290,29 +281,26 @@ function renderVisualization() {
 
   const gridEnd = new Date(endDate);
   const endDayOfWeek = gridEnd.getDay();
-  const endDiff =
-    gridEnd.getDate() + (endDayOfWeek === 0 ? 0 : 7 - endDayOfWeek);
+  const endDiff = gridEnd.getDate() + (endDayOfWeek === 0 ? 0 : 7 - endDayOfWeek);
   gridEnd.setDate(endDiff);
 
   let current = new Date(gridStart);
-  let weekRow = document.createElement("div");
-  weekRow.className = "week-row";
+  let weekRow = document.createElement('div');
+  weekRow.className = 'week-row';
 
   // Header Row
-  const headerRow = document.createElement("div");
-  headerRow.className = "week-row week-header";
-  headerRow.style.marginBottom = "8px";
-  headerRow.style.color = "#999";
-  headerRow.style.fontWeight = "500";
-  headerRow.style.fontSize = "12px";
-  ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Weekly Summary"].forEach(
-    (d) => {
-      const cell = document.createElement("div");
-      cell.style.textAlign = "center";
-      cell.textContent = d;
-      headerRow.appendChild(cell);
-    },
-  );
+  const headerRow = document.createElement('div');
+  headerRow.className = 'week-row week-header';
+  headerRow.style.marginBottom = '8px';
+  headerRow.style.color = '#999';
+  headerRow.style.fontWeight = '500';
+  headerRow.style.fontSize = '12px';
+  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Weekly Summary'].forEach((d) => {
+    const cell = document.createElement('div');
+    cell.style.textAlign = 'center';
+    cell.textContent = d;
+    headerRow.appendChild(cell);
+  });
   visualizationContainer.appendChild(headerRow);
 
   let weeklyStats = {
@@ -327,49 +315,42 @@ function renderVisualization() {
     const dateStr = formatLocal(current);
     const dayData = dailySummaries[dateStr];
 
-    const cell = document.createElement("div");
-    cell.className = "day-cell";
+    const cell = document.createElement('div');
+    cell.className = 'day-cell';
 
-    const dateLabel = document.createElement("span");
-    dateLabel.className = "day-date";
+    const dateLabel = document.createElement('span');
+    dateLabel.className = 'day-date';
     dateLabel.textContent = `${current.getMonth() + 1}/${current.getDate()}`;
     if (current < startDate || current > endDate) {
-      cell.classList.add("other-month");
+      cell.classList.add('other-month');
     }
 
     if (RACES[dateStr]) {
-      cell.classList.add("race-day");
+      cell.classList.add('race-day');
       dateLabel.innerHTML = `${current.getMonth() + 1}/${current.getDate()} <span class="race-name">${RACES[dateStr]}</span>`;
     }
 
     cell.appendChild(dateLabel);
 
-    const dotsContainer = document.createElement("div");
-    dotsContainer.className = "activities-container";
+    const dotsContainer = document.createElement('div');
+    dotsContainer.className = 'activities-container';
 
     if (dayData) {
       if (dayData.runDistance > 0) {
         const size = calculateSize(dayData.runDuration, globalMax.duration);
-        dotsContainer.appendChild(createDot("RUN", size, dayData.runDistance));
+        dotsContainer.appendChild(createDot('RUN', size, dayData.runDistance));
         weeklyStats.runDistance += dayData.runDistance;
         weeklyStats.runDuration += dayData.runDuration;
       }
       if (dayData.rideDuration > 0) {
         const size = calculateSize(dayData.rideDuration, globalMax.duration);
-        dotsContainer.appendChild(
-          createDot("RIDE", size, dayData.rideDuration),
-        );
+        dotsContainer.appendChild(createDot('RIDE', size, dayData.rideDuration));
         weeklyStats.rideDuration += dayData.rideDuration;
         weeklyStats.rideDistance += dayData.rideDistance;
       }
       if (dayData.strengthDuration > 0) {
-        const size = calculateSize(
-          dayData.strengthDuration,
-          globalMax.duration,
-        );
-        dotsContainer.appendChild(
-          createDot("STRENGTH", size, dayData.strengthDuration),
-        );
+        const size = calculateSize(dayData.strengthDuration, globalMax.duration);
+        dotsContainer.appendChild(createDot('STRENGTH', size, dayData.strengthDuration));
         weeklyStats.strengthDuration += dayData.strengthDuration;
       }
     }
@@ -378,24 +359,24 @@ function renderVisualization() {
     weekRow.appendChild(cell);
 
     if (current.getDay() === 0) {
-      const summaryCell = document.createElement("div");
-      summaryCell.className = "summary-cell";
+      const summaryCell = document.createElement('div');
+      summaryCell.className = 'summary-cell';
 
-      let summaryHTML = "<strong>Total:</strong><br>";
+      let summaryHTML = '<strong>Total:</strong><br>';
       if (weeklyStats.runDistance > 0) {
         const miles = weeklyStats.runDistance / 1609.34;
-        let paceStr = "";
+        let paceStr = '';
         if (weeklyStats.runDuration > 0 && miles > 0) {
           const totalMinutes = weeklyStats.runDuration / 60;
           const pace = totalMinutes / miles;
           const paceMin = Math.floor(pace);
           const paceSec = Math.floor((pace - paceMin) * 60);
-          paceStr = `, ${paceMin}:${paceSec.toString().padStart(2, "0")}`;
+          paceStr = `, ${paceMin}:${paceSec.toString().padStart(2, '0')}`;
         }
         summaryHTML += `Run: ${miles.toFixed(1)} mi${paceStr}<br>`;
       }
       if (weeklyStats.rideDuration > 0) {
-        let rideDistStr = "";
+        let rideDistStr = '';
         if (weeklyStats.rideDistance > 0) {
           rideDistStr = `${(weeklyStats.rideDistance / 1609.34).toFixed(1)} mi, `;
         }
@@ -410,7 +391,7 @@ function renderVisualization() {
         weeklyStats.rideDuration === 0 &&
         weeklyStats.strengthDuration === 0
       ) {
-        summaryHTML += "-";
+        summaryHTML += '-';
       }
 
       summaryCell.innerHTML = summaryHTML;
@@ -418,8 +399,8 @@ function renderVisualization() {
 
       visualizationContainer.appendChild(weekRow);
 
-      weekRow = document.createElement("div");
-      weekRow.className = "week-row";
+      weekRow = document.createElement('div');
+      weekRow.className = 'week-row';
 
       weeklyStats = {
         runDistance: 0,
@@ -449,48 +430,48 @@ function formatDuration(seconds) {
 }
 
 function createDot(type, size, value) {
-  const dot = document.createElement("div");
-  dot.className = "activity-dot";
+  const dot = document.createElement('div');
+  dot.className = 'activity-dot';
   dot.style.width = `${size}px`;
   dot.style.height = `${size}px`;
   dot.style.backgroundColor = DOT_COLORS[type];
 
-  let text = "";
-  let unit = "";
-  if (type === "RUN") {
+  let text = '';
+  let unit = '';
+  if (type === 'RUN') {
     const miles = value / 1609.34;
     text = miles.toFixed(1);
-    unit = "mi";
+    unit = 'mi';
   } else {
     text = Math.round(value / 60);
-    unit = "m";
+    unit = 'm';
   }
 
-  dot.textContent = text + (unit ? ` ${unit}` : "");
+  dot.textContent = text + (unit ? ` ${unit}` : '');
   dot.title = `${type}: ${text} ${unit}`;
 
   return dot;
 }
 
 function updateYearControls() {
-  let yearSelect = document.getElementById("yearSelect");
+  let yearSelect = document.getElementById('yearSelect');
 
   if (!yearSelect) {
-    const controlsDiv = document.querySelector(".controls");
-    const wrapper = document.createElement("div");
-    wrapper.className = "year-control-wrapper";
+    const controlsDiv = document.querySelector('.controls');
+    const wrapper = document.createElement('div');
+    wrapper.className = 'year-control-wrapper';
 
-    const label = document.createElement("label");
-    label.textContent = "Year: ";
-    label.htmlFor = "yearSelect";
-    label.style.color = "var(--text-secondary)";
-    label.style.fontSize = "14px";
-    label.style.marginRight = "8px";
+    const label = document.createElement('label');
+    label.textContent = 'Year: ';
+    label.htmlFor = 'yearSelect';
+    label.style.color = 'var(--text-secondary)';
+    label.style.fontSize = '14px';
+    label.style.marginRight = '8px';
 
-    yearSelect = document.createElement("select");
-    yearSelect.id = "yearSelect";
-    yearSelect.className = "year-select";
-    yearSelect.addEventListener("change", (e) => {
+    yearSelect = document.createElement('select');
+    yearSelect.id = 'yearSelect';
+    yearSelect.className = 'year-select';
+    yearSelect.addEventListener('change', (e) => {
       currentYear = parseInt(e.target.value, 10);
       if (AuthService.isLoggedIn()) {
         loadDataFromAPI();
@@ -502,15 +483,15 @@ function updateYearControls() {
     wrapper.appendChild(label);
     wrapper.appendChild(yearSelect);
 
-    const legend = controlsDiv.querySelector(".legend");
+    const legend = controlsDiv.querySelector('.legend');
     controlsDiv.insertBefore(wrapper, legend);
   }
 
-  yearSelect.innerHTML = "";
+  yearSelect.innerHTML = '';
   const sortedYears = Array.from(availableYears).sort((a, b) => b - a);
 
   sortedYears.forEach((year) => {
-    const option = document.createElement("option");
+    const option = document.createElement('option');
     option.value = year;
     option.textContent = year;
     if (year === currentYear) {

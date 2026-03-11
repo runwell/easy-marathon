@@ -1,5 +1,5 @@
 .DS_Store
 .idea/
 __pycache__/
-workers/node_modules/
+node_modules/
 workers/README.md

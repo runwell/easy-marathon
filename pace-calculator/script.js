@@ -1,54 +1,54 @@
 // ===== Constants =====
 const DISTANCES = {
-  5: { name: "5K", km: 5 },
-  10: { name: "10K", km: 10 },
-  21.0975: { name: "Half Marathon", km: 21.0975 },
-  42.195: { name: "Marathon", km: 42.195 },
-  50: { name: "50K", km: 50 },
+  5: { name: '5K', km: 5 },
+  10: { name: '10K', km: 10 },
+  21.0975: { name: 'Half Marathon', km: 21.0975 },
+  42.195: { name: 'Marathon', km: 42.195 },
+  50: { name: '50K', km: 50 },
 };
 
 const KM_TO_MI = 0.621371;
 const MI_TO_KM = 1.60934;
 
 // ===== State =====
-let currentMode = "pace"; // 'pace', 'time', or 'distance'
-let selectedDistance = "custom";
+let currentMode = 'pace'; // 'pace', 'time', or 'distance'
+let selectedDistance = 'custom';
 
 // ===== DOM Elements =====
-const modeButtons = document.querySelectorAll(".mode-btn");
-const distanceButtons = document.querySelectorAll(".distance-btn");
-const distanceGroup = document.getElementById("distance-group");
-const timeGroup = document.getElementById("time-group");
-const paceGroup = document.getElementById("pace-group");
-const customDistanceInput = document.getElementById("custom-distance-input");
-const distanceValue = document.getElementById("distance-value");
-const distanceUnit = document.getElementById("distance-unit");
-const hoursInput = document.getElementById("hours");
-const minutesInput = document.getElementById("minutes");
-const secondsInput = document.getElementById("seconds");
-const paceMinutesInput = document.getElementById("pace-minutes");
-const paceSecondsInput = document.getElementById("pace-seconds");
-const paceUnitSelect = document.getElementById("pace-unit");
-const calculateBtn = document.getElementById("calculate-btn");
-const resultsSection = document.getElementById("results-section");
-const resultsGrid = document.getElementById("results-grid");
-const paceChartSection = document.getElementById("pace-chart-section");
-const paceChart = document.getElementById("pace-chart");
+const modeButtons = document.querySelectorAll('.mode-btn');
+const distanceButtons = document.querySelectorAll('.distance-btn');
+const distanceGroup = document.getElementById('distance-group');
+const timeGroup = document.getElementById('time-group');
+const paceGroup = document.getElementById('pace-group');
+const customDistanceInput = document.getElementById('custom-distance-input');
+const distanceValue = document.getElementById('distance-value');
+const distanceUnit = document.getElementById('distance-unit');
+const hoursInput = document.getElementById('hours');
+const minutesInput = document.getElementById('minutes');
+const secondsInput = document.getElementById('seconds');
+const paceMinutesInput = document.getElementById('pace-minutes');
+const paceSecondsInput = document.getElementById('pace-seconds');
+const paceUnitSelect = document.getElementById('pace-unit');
+const calculateBtn = document.getElementById('calculate-btn');
+const resultsSection = document.getElementById('results-section');
+const resultsGrid = document.getElementById('results-grid');
+const paceChartSection = document.getElementById('pace-chart-section');
+const paceChart = document.getElementById('pace-chart');
 
 // ===== Event Listeners =====
 modeButtons.forEach((btn) => {
-  btn.addEventListener("click", () => selectMode(btn.dataset.mode));
+  btn.addEventListener('click', () => selectMode(btn.dataset.mode));
 });
 
 distanceButtons.forEach((btn) => {
-  btn.addEventListener("click", () => selectDistance(btn.dataset.distance));
+  btn.addEventListener('click', () => selectDistance(btn.dataset.distance));
 });
 
-calculateBtn.addEventListener("click", calculate);
+calculateBtn.addEventListener('click', calculate);
 
 // Allow Enter key to trigger calculation
-document.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") {
+document.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
     calculate();
   }
 });
@@ -59,13 +59,13 @@ function selectMode(mode) {
 
   // Update mode button states
   modeButtons.forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.mode === mode);
+    btn.classList.toggle('active', btn.dataset.mode === mode);
   });
 
   // Show/hide input groups based on mode
-  distanceGroup.classList.toggle("hidden", mode === "distance");
-  timeGroup.classList.toggle("hidden", mode === "time");
-  paceGroup.classList.toggle("hidden", mode === "pace");
+  distanceGroup.classList.toggle('hidden', mode === 'distance');
+  timeGroup.classList.toggle('hidden', mode === 'time');
+  paceGroup.classList.toggle('hidden', mode === 'pace');
 
   // Hide results when mode changes
   hideResults();
@@ -76,19 +76,19 @@ function selectDistance(distance) {
 
   // Update distance button states
   distanceButtons.forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.distance === distance);
+    btn.classList.toggle('active', btn.dataset.distance === distance);
   });
 
   // Show/hide custom distance input
-  if (distance === "custom") {
-    customDistanceInput.style.display = "flex";
-    distanceValue.value = "";
-    distanceUnit.value = "mi";
+  if (distance === 'custom') {
+    customDistanceInput.style.display = 'flex';
+    distanceValue.value = '';
+    distanceUnit.value = 'mi';
     distanceValue.focus();
   } else {
-    customDistanceInput.style.display = "flex";
+    customDistanceInput.style.display = 'flex';
     distanceValue.value = DISTANCES[distance].km;
-    distanceUnit.value = "km";
+    distanceUnit.value = 'km';
   }
 
   hideResults();
@@ -98,7 +98,7 @@ function getDistanceInKm() {
   let distance = parseFloat(distanceValue.value);
   if (isNaN(distance) || distance <= 0) return null;
 
-  if (distanceUnit.value === "mi") {
+  if (distanceUnit.value === 'mi') {
     distance = distance * MI_TO_KM;
   }
 
@@ -122,7 +122,7 @@ function getPaceInSecondsPerKm() {
   if (paceSeconds <= 0) return null;
 
   // Convert to seconds per km if pace is per mile
-  if (paceUnitSelect.value === "mi") {
+  if (paceUnitSelect.value === 'mi') {
     paceSeconds = paceSeconds / MI_TO_KM;
   }
 
@@ -135,16 +135,16 @@ function formatTime(totalSeconds) {
   const seconds = Math.round(totalSeconds % 60);
 
   if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   } else {
-    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 }
 
 function formatPace(secondsPerUnit) {
   const minutes = Math.floor(secondsPerUnit / 60);
   const seconds = Math.round(secondsPerUnit % 60);
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
 function calculate() {
@@ -153,13 +153,13 @@ function calculate() {
   let results = [];
 
   switch (currentMode) {
-    case "pace":
+    case 'pace':
       results = calculatePace();
       break;
-    case "time":
+    case 'time':
       results = calculateTime();
       break;
-    case "distance":
+    case 'distance':
       results = calculateDistance();
       break;
   }
@@ -174,7 +174,7 @@ function calculatePace() {
   const timeSeconds = getTimeInSeconds();
 
   if (!distanceKm || !timeSeconds) {
-    showError("Please enter valid distance and time");
+    showError('Please enter valid distance and time');
     return [];
   }
 
@@ -185,36 +185,36 @@ function calculatePace() {
 
   const results = [
     {
-      label: "Pace",
+      label: 'Pace',
       value: formatPace(paceSecondsPerMi),
-      unit: "min/mile",
+      unit: 'min/mile',
       primary: true,
     },
     {
-      label: "Pace",
+      label: 'Pace',
       value: formatPace(paceSecondsPerKm),
-      unit: "min/km",
+      unit: 'min/km',
       primary: true,
     },
     {
-      label: "Total Time",
+      label: 'Total Time',
       value: formatTime(timeSeconds),
-      unit: "",
+      unit: '',
     },
     {
-      label: "Distance",
+      label: 'Distance',
       value: distanceKm.toFixed(2),
-      unit: "km",
+      unit: 'km',
     },
     {
-      label: "Distance",
+      label: 'Distance',
       value: distanceMi.toFixed(2),
-      unit: "miles",
+      unit: 'miles',
     },
     {
-      label: "Speed",
+      label: 'Speed',
       value: ((distanceKm / timeSeconds) * 3600).toFixed(2),
-      unit: "km/h",
+      unit: 'km/h',
     },
   ];
 
@@ -229,7 +229,7 @@ function calculateTime() {
   const paceSecondsPerKm = getPaceInSecondsPerKm();
 
   if (!distanceKm || !paceSecondsPerKm) {
-    showError("Please enter valid distance and pace");
+    showError('Please enter valid distance and pace');
     return [];
   }
 
@@ -239,30 +239,30 @@ function calculateTime() {
 
   const results = [
     {
-      label: "Total Time",
+      label: 'Total Time',
       value: formatTime(totalTimeSeconds),
-      unit: "",
+      unit: '',
       primary: true,
     },
     {
-      label: "Distance",
+      label: 'Distance',
       value: distanceKm.toFixed(2),
-      unit: "km",
+      unit: 'km',
     },
     {
-      label: "Distance",
+      label: 'Distance',
       value: distanceMi.toFixed(2),
-      unit: "miles",
+      unit: 'miles',
     },
     {
-      label: "Pace",
+      label: 'Pace',
       value: formatPace(paceSecondsPerMi),
-      unit: "min/mile",
+      unit: 'min/mile',
     },
     {
-      label: "Pace",
+      label: 'Pace',
       value: formatPace(paceSecondsPerKm),
-      unit: "min/km",
+      unit: 'min/km',
     },
   ];
 
@@ -277,7 +277,7 @@ function calculateDistance() {
   const paceSecondsPerKm = getPaceInSecondsPerKm();
 
   if (!timeSeconds || !paceSecondsPerKm) {
-    showError("Please enter valid time and pace");
+    showError('Please enter valid time and pace');
     return [];
   }
 
@@ -287,31 +287,31 @@ function calculateDistance() {
 
   const results = [
     {
-      label: "Distance",
+      label: 'Distance',
       value: distanceKm.toFixed(2),
-      unit: "km",
+      unit: 'km',
       primary: true,
     },
     {
-      label: "Distance",
+      label: 'Distance',
       value: distanceMi.toFixed(2),
-      unit: "miles",
+      unit: 'miles',
       primary: true,
     },
     {
-      label: "Total Time",
+      label: 'Total Time',
       value: formatTime(timeSeconds),
-      unit: "",
+      unit: '',
     },
     {
-      label: "Pace",
+      label: 'Pace',
       value: formatPace(paceSecondsPerMi),
-      unit: "min/mile",
+      unit: 'min/mile',
     },
     {
-      label: "Pace",
+      label: 'Pace',
       value: formatPace(paceSecondsPerKm),
-      unit: "min/km",
+      unit: 'min/km',
     },
   ];
 
@@ -322,11 +322,11 @@ function calculateDistance() {
 }
 
 function displayResults(results) {
-  resultsGrid.innerHTML = "";
+  resultsGrid.innerHTML = '';
 
   results.forEach((result) => {
-    const card = document.createElement("div");
-    card.className = `result-card${result.primary ? " primary" : ""}`;
+    const card = document.createElement('div');
+    card.className = `result-card${result.primary ? ' primary' : ''}`;
     card.innerHTML = `
             <div class="result-label">${result.label}</div>
             <div class="result-value">${result.value}</div>
@@ -335,11 +335,11 @@ function displayResults(results) {
     resultsGrid.appendChild(card);
   });
 
-  resultsSection.classList.remove("hidden");
+  resultsSection.classList.remove('hidden');
 }
 
 function generateSplits(distanceKm, paceSecondsPerKm) {
-  paceChart.innerHTML = "";
+  paceChart.innerHTML = '';
 
   // Determine split interval based on distance
   let splitInterval = 1; // km
@@ -352,8 +352,8 @@ function generateSplits(distanceKm, paceSecondsPerKm) {
   let currentDistance = splitInterval;
   while (currentDistance <= distanceKm) {
     const splitTime = currentDistance * paceSecondsPerKm;
-    const row = document.createElement("div");
-    row.className = "split-row";
+    const row = document.createElement('div');
+    row.className = 'split-row';
     row.innerHTML = `
             <span class="split-distance">${currentDistance} km</span>
             <span class="split-time">${formatTime(splitTime)}</span>
@@ -365,8 +365,8 @@ function generateSplits(distanceKm, paceSecondsPerKm) {
   // Add final distance if not already included
   if (Math.abs(currentDistance - splitInterval - distanceKm) > 0.01) {
     const finalTime = distanceKm * paceSecondsPerKm;
-    const row = document.createElement("div");
-    row.className = "split-row";
+    const row = document.createElement('div');
+    row.className = 'split-row';
     row.innerHTML = `
             <span class="split-distance">${distanceKm.toFixed(2)} km (Finish)</span>
             <span class="split-time">${formatTime(finalTime)}</span>
@@ -374,23 +374,23 @@ function generateSplits(distanceKm, paceSecondsPerKm) {
     paceChart.appendChild(row);
   }
 
-  paceChartSection.classList.remove("hidden");
+  paceChartSection.classList.remove('hidden');
 }
 
 function hideResults() {
-  resultsSection.classList.add("hidden");
-  paceChartSection.classList.add("hidden");
+  resultsSection.classList.add('hidden');
+  paceChartSection.classList.add('hidden');
 }
 
 function showError(message) {
   // Create a simple error notification
-  const existingError = document.querySelector(".error-toast");
+  const existingError = document.querySelector('.error-toast');
   if (existingError) {
     existingError.remove();
   }
 
-  const toast = document.createElement("div");
-  toast.className = "error-toast";
+  const toast = document.createElement('div');
+  toast.className = 'error-toast';
   toast.style.cssText = `
         position: fixed;
         top: 20px;
@@ -409,14 +409,14 @@ function showError(message) {
   document.body.appendChild(toast);
 
   setTimeout(() => {
-    toast.style.animation = "fadeInUp 0.3s ease reverse";
+    toast.style.animation = 'fadeInUp 0.3s ease reverse';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
 
 // ===== Initialize =====
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener('DOMContentLoaded', () => {
   // Set initial state
-  selectMode("pace");
-  selectDistance("custom");
+  selectMode('pace');
+  selectDistance('custom');
 });

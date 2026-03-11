@@ -1,24 +1,24 @@
-import { statesList } from "./data.js";
+import { statesList } from './data.js';
 
 // DOM Elements
-const statesGrid = document.getElementById("states-grid");
-const modalOverlay = document.getElementById("modal-overlay");
-const modalStateName = document.getElementById("modal-state-name");
-const marathonForm = document.getElementById("marathon-form");
-const closeModalBtn = document.getElementById("close-modal");
-const cancelBtn = document.getElementById("cancel-btn");
-const statusSelect = document.getElementById("status");
-const raceDetailsDiv = document.getElementById("race-details");
-const marathonOptionsDiv = document.getElementById("marathon-options");
-const marathonOptionsList = document.getElementById("marathon-options-list");
-const resetBtn = document.getElementById("reset-btn");
-const completedCountEl = document.getElementById("completed-count");
-const plannedCountEl = document.getElementById("planned-count");
-const remainingCountEl = document.getElementById("remaining-count");
-const progressFill = document.getElementById("progress-fill");
+const statesGrid = document.getElementById('states-grid');
+const modalOverlay = document.getElementById('modal-overlay');
+const modalStateName = document.getElementById('modal-state-name');
+const marathonForm = document.getElementById('marathon-form');
+const closeModalBtn = document.getElementById('close-modal');
+const cancelBtn = document.getElementById('cancel-btn');
+const statusSelect = document.getElementById('status');
+const raceDetailsDiv = document.getElementById('race-details');
+const marathonOptionsDiv = document.getElementById('marathon-options');
+const marathonOptionsList = document.getElementById('marathon-options-list');
+const resetBtn = document.getElementById('reset-btn');
+const completedCountEl = document.getElementById('completed-count');
+const plannedCountEl = document.getElementById('planned-count');
+const remainingCountEl = document.getElementById('remaining-count');
+const progressFill = document.getElementById('progress-fill');
 
 // State
-let userProgress = JSON.parse(localStorage.getItem("marathon50Progress")) || {};
+let userProgress = JSON.parse(localStorage.getItem('marathon50Progress')) || {};
 let currentStateCode = null;
 let marathonOptionsByState = {};
 
@@ -34,7 +34,7 @@ async function init() {
 async function loadMarathonOptions() {
   try {
     const response = await fetch(
-      "https://raw.githubusercontent.com/artcmd/easy-marathon/main/data/collected-us-marathon.csv",
+      'https://raw.githubusercontent.com/artcmd/easy-marathon/main/data/collected-us-marathon.csv',
     );
 
     // Check if the request was successful
@@ -46,14 +46,14 @@ async function loadMarathonOptions() {
 
     // Check if we got valid content
     if (!csvText || csvText.trim().length === 0) {
-      throw new Error("CSV file is empty");
+      throw new Error('CSV file is empty');
     }
 
-    const lines = csvText.trim().split("\n");
+    const lines = csvText.trim().split('\n');
 
     // Validate we have at least a header and one data row
     if (lines.length < 2) {
-      throw new Error("CSV file has no data rows");
+      throw new Error('CSV file has no data rows');
     }
 
     let loadedCount = 0;
@@ -81,12 +81,12 @@ async function loadMarathonOptions() {
       }
 
       const marathon = {
-        name: columns[2] || "Unknown Marathon",
-        city: columns[3] || "Unknown City",
-        finishers: columns[4] || "N/A",
-        courseType: columns[5] || "Unknown",
-        elevationGain: columns[6] || "-",
-        elevationLoss: columns[7] || "-",
+        name: columns[2] || 'Unknown Marathon',
+        city: columns[3] || 'Unknown City',
+        finishers: columns[4] || 'N/A',
+        courseType: columns[5] || 'Unknown',
+        elevationGain: columns[6] || '-',
+        elevationLoss: columns[7] || '-',
         date: columns[8],
       };
 
@@ -101,7 +101,7 @@ async function loadMarathonOptions() {
       `Loaded ${loadedCount} marathon options across ${Object.keys(marathonOptionsByState).length} states`,
     );
   } catch (error) {
-    console.error("Failed to load marathon options:", error.message);
+    console.error('Failed to load marathon options:', error.message);
     // Set a flag to indicate marathon options are unavailable
     marathonOptionsByState = {};
     // The UI will handle showing "No marathon data available" when options are empty
@@ -111,7 +111,7 @@ async function loadMarathonOptions() {
 // Parse CSV line handling quoted fields
 function parseCSVLine(line) {
   const result = [];
-  let current = "";
+  let current = '';
   let inQuotes = false;
 
   for (let i = 0; i < line.length; i++) {
@@ -119,9 +119,9 @@ function parseCSVLine(line) {
 
     if (char === '"') {
       inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
+    } else if (char === ',' && !inQuotes) {
       result.push(current.trim());
-      current = "";
+      current = '';
     } else {
       current += char;
     }
@@ -133,12 +133,8 @@ function parseCSVLine(line) {
 
 // Render Dashboard Stats
 function renderDashboard() {
-  const completed = Object.values(userProgress).filter(
-    (s) => s.status === "completed",
-  ).length;
-  const planned = Object.values(userProgress).filter(
-    (s) => s.status === "planned",
-  ).length;
+  const completed = Object.values(userProgress).filter((s) => s.status === 'completed').length;
+  const planned = Object.values(userProgress).filter((s) => s.status === 'planned').length;
   const remaining = 50 - completed;
 
   completedCountEl.textContent = completed;
@@ -151,30 +147,30 @@ function renderDashboard() {
 
 // Render States Grid
 function renderGrid() {
-  statesGrid.innerHTML = "";
+  statesGrid.innerHTML = '';
 
   statesList.forEach((state) => {
     const stateData = userProgress[state.code];
-    const status = stateData ? stateData.status : "none";
+    const status = stateData ? stateData.status : 'none';
 
-    const card = document.createElement("div");
-    card.className = `state-card ${status === "completed" ? "completed" : status === "planned" ? "planned" : ""}`;
+    const card = document.createElement('div');
+    card.className = `state-card ${status === 'completed' ? 'completed' : status === 'planned' ? 'planned' : ''}`;
     card.onclick = () => openModal(state);
 
-    let statusLabel = "";
-    if (status === "completed") {
-      const year = stateData.raceDate ? stateData.raceDate.split("-")[0] : "";
-      const time = stateData.finishTime || "";
+    let statusLabel = '';
+    if (status === 'completed') {
+      const year = stateData.raceDate ? stateData.raceDate.split('-')[0] : '';
+      const time = stateData.finishTime || '';
 
       if (year || time) {
-        const text = [year, time].filter(Boolean).join(" - ");
+        const text = [year, time].filter(Boolean).join(' - ');
         statusLabel = `<div class="status-badge">${text}</div>`;
       } else {
         statusLabel = '<div class="status-badge">Completed</div>';
       }
-    } else if (status === "planned") {
-      const raceName = stateData.raceName || "";
-      const text = raceName ? `Planned: ${raceName}` : "Planned";
+    } else if (status === 'planned') {
+      const raceName = stateData.raceName || '';
+      const text = raceName ? `Planned: ${raceName}` : 'Planned';
       statusLabel = `<div class="status-badge">${text}</div>`;
     }
 
@@ -199,54 +195,54 @@ function openModal(state) {
   // Fill data if exists
   const data = userProgress[state.code];
   if (data) {
-    statusSelect.value = data.status || "not started";
-    document.getElementById("race-name").value = data.raceName || "";
-    document.getElementById("race-date").value = data.raceDate || "";
-    document.getElementById("finish-time").value = data.finishTime || "";
-    document.getElementById("notes").value = data.notes || "";
+    statusSelect.value = data.status || 'not started';
+    document.getElementById('race-name').value = data.raceName || '';
+    document.getElementById('race-date').value = data.raceDate || '';
+    document.getElementById('finish-time').value = data.finishTime || '';
+    document.getElementById('notes').value = data.notes || '';
   } else {
-    statusSelect.value = "not started";
+    statusSelect.value = 'not started';
   }
 
   toggleRaceDetails();
-  modalOverlay.classList.add("open");
+  modalOverlay.classList.add('open');
 }
 
 function closeModal() {
-  modalOverlay.classList.remove("open");
+  modalOverlay.classList.remove('open');
   currentStateCode = null;
 }
 
 function toggleRaceDetails() {
   const status = statusSelect.value;
   const stateData = userProgress[currentStateCode];
-  const isCompleted = stateData && stateData.status === "completed";
+  const isCompleted = stateData && stateData.status === 'completed';
 
   // Show marathon options when status is 'not started' or planned (but not for already completed states)
-  if ((status === "not started" || status === "planned") && !isCompleted) {
+  if ((status === 'not started' || status === 'planned') && !isCompleted) {
     renderMarathonOptions(currentStateCode);
-    marathonOptionsDiv.classList.remove("hidden");
+    marathonOptionsDiv.classList.remove('hidden');
   } else {
-    marathonOptionsDiv.classList.add("hidden");
+    marathonOptionsDiv.classList.add('hidden');
   }
 
-  if (status === "not started") {
-    raceDetailsDiv.classList.add("hidden");
+  if (status === 'not started') {
+    raceDetailsDiv.classList.add('hidden');
   } else {
-    raceDetailsDiv.classList.remove("hidden");
+    raceDetailsDiv.classList.remove('hidden');
 
     // Hide finish time if only planned
-    if (status === "planned") {
-      document.getElementById("finish-time-group").classList.add("hidden");
+    if (status === 'planned') {
+      document.getElementById('finish-time-group').classList.add('hidden');
     } else {
-      document.getElementById("finish-time-group").classList.remove("hidden");
+      document.getElementById('finish-time-group').classList.remove('hidden');
     }
   }
 }
 
 // Render marathon options for a state
 function renderMarathonOptions(stateCode) {
-  marathonOptionsList.innerHTML = "";
+  marathonOptionsList.innerHTML = '';
 
   const options = marathonOptionsByState[stateCode];
   if (!options || options.length === 0) {
@@ -256,8 +252,8 @@ function renderMarathonOptions(stateCode) {
   }
 
   options.forEach((marathon) => {
-    const optionEl = document.createElement("div");
-    optionEl.className = "marathon-option";
+    const optionEl = document.createElement('div');
+    optionEl.className = 'marathon-option';
     optionEl.innerHTML = `
             <div class="marathon-option-header">
                 <span class="marathon-option-name">${marathon.name}</span>
@@ -270,18 +266,18 @@ function renderMarathonOptions(stateCode) {
             </div>
         `;
 
-    optionEl.addEventListener("click", () => selectMarathonOption(marathon));
+    optionEl.addEventListener('click', () => selectMarathonOption(marathon));
     marathonOptionsList.appendChild(optionEl);
   });
 }
 
 // Select a marathon option and fill the form
 function selectMarathonOption(marathon) {
-  document.getElementById("race-name").value = marathon.name;
+  document.getElementById('race-name').value = marathon.name;
 
   // If status is "not started", automatically change to "planned"
-  if (statusSelect.value === "not started") {
-    statusSelect.value = "planned";
+  if (statusSelect.value === 'not started') {
+    statusSelect.value = 'planned';
     toggleRaceDetails();
   }
 }
@@ -293,20 +289,20 @@ function saveProgress(e) {
 
   const status = statusSelect.value;
 
-  if (status === "not started") {
+  if (status === 'not started') {
     delete userProgress[currentStateCode];
   } else {
     const formData = new FormData(marathonForm);
     userProgress[currentStateCode] = {
       status: status,
-      raceName: formData.get("raceName"),
-      raceDate: formData.get("raceDate"),
-      finishTime: formData.get("finishTime"),
-      notes: formData.get("notes"),
+      raceName: formData.get('raceName'),
+      raceDate: formData.get('raceDate'),
+      finishTime: formData.get('finishTime'),
+      notes: formData.get('notes'),
     };
   }
 
-  localStorage.setItem("marathon50Progress", JSON.stringify(userProgress));
+  localStorage.setItem('marathon50Progress', JSON.stringify(userProgress));
 
   renderDashboard();
   renderGrid();
@@ -321,7 +317,7 @@ function resetData() {
     )
   ) {
     userProgress = {};
-    localStorage.removeItem("marathon50Progress");
+    localStorage.removeItem('marathon50Progress');
 
     renderDashboard();
     renderGrid();
@@ -331,12 +327,12 @@ function resetData() {
 // Export Data
 function exportData() {
   const dataStr = JSON.stringify(userProgress, null, 2);
-  const blob = new Blob([dataStr], { type: "application/json" });
+  const blob = new Blob([dataStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
 
-  const link = document.createElement("a");
+  const link = document.createElement('a');
   link.href = url;
-  link.download = `50-states-marathon-${new Date().toISOString().split("T")[0]}.json`;
+  link.download = `50-states-marathon-${new Date().toISOString().split('T')[0]}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -352,21 +348,17 @@ function importData(file) {
       const importedData = JSON.parse(e.target.result);
 
       // Validate the imported data structure
-      if (typeof importedData !== "object" || importedData === null) {
-        throw new Error("Invalid data format");
+      if (typeof importedData !== 'object' || importedData === null) {
+        throw new Error('Invalid data format');
       }
 
       // Check if it has valid state codes
       const validStateCodes = statesList.map((s) => s.code);
       const importedCodes = Object.keys(importedData);
-      const invalidCodes = importedCodes.filter(
-        (code) => !validStateCodes.includes(code),
-      );
+      const invalidCodes = importedCodes.filter((code) => !validStateCodes.includes(code));
 
       if (invalidCodes.length > 0) {
-        console.warn(
-          `Ignoring invalid state codes: ${invalidCodes.join(", ")}`,
-        );
+        console.warn(`Ignoring invalid state codes: ${invalidCodes.join(', ')}`);
       }
 
       // Filter to only valid state codes
@@ -383,26 +375,21 @@ function importData(file) {
         )
       ) {
         userProgress = validData;
-        localStorage.setItem(
-          "marathon50Progress",
-          JSON.stringify(userProgress),
-        );
+        localStorage.setItem('marathon50Progress', JSON.stringify(userProgress));
 
         renderDashboard();
         renderGrid();
 
-        alert("Data imported successfully!");
+        alert('Data imported successfully!');
       }
     } catch (error) {
-      console.error("Import error:", error);
-      alert(
-        "Failed to import data. Please ensure the file is a valid JSON export.",
-      );
+      console.error('Import error:', error);
+      alert('Failed to import data. Please ensure the file is a valid JSON export.');
     }
   };
 
   reader.onerror = () => {
-    alert("Error reading file. Please try again.");
+    alert('Error reading file. Please try again.');
   };
 
   reader.readAsText(file);
@@ -410,35 +397,35 @@ function importData(file) {
 
 // Event Listeners
 function setupEventListeners() {
-  closeModalBtn.addEventListener("click", closeModal);
-  cancelBtn.addEventListener("click", closeModal);
+  closeModalBtn.addEventListener('click', closeModal);
+  cancelBtn.addEventListener('click', closeModal);
 
-  modalOverlay.addEventListener("click", (e) => {
+  modalOverlay.addEventListener('click', (e) => {
     if (e.target === modalOverlay) closeModal();
   });
 
-  statusSelect.addEventListener("change", toggleRaceDetails);
+  statusSelect.addEventListener('change', toggleRaceDetails);
 
-  marathonForm.addEventListener("submit", saveProgress);
+  marathonForm.addEventListener('submit', saveProgress);
 
   if (resetBtn) {
-    resetBtn.addEventListener("click", resetData);
+    resetBtn.addEventListener('click', resetData);
   }
 
   // Export button
-  const exportBtn = document.getElementById("export-btn");
+  const exportBtn = document.getElementById('export-btn');
   if (exportBtn) {
-    exportBtn.addEventListener("click", exportData);
+    exportBtn.addEventListener('click', exportData);
   }
 
   // Import file input
-  const importInput = document.getElementById("import-input");
+  const importInput = document.getElementById('import-input');
   if (importInput) {
-    importInput.addEventListener("change", (e) => {
+    importInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
         importData(file);
-        e.target.value = ""; // Reset input
+        e.target.value = ''; // Reset input
       }
     });
   }
