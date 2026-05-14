@@ -36,7 +36,6 @@ jobs:
           cp index.html style.css icon.svg _site/
           mkdir -p _site/50states-tracker
           cp -r 50states-tracker/*.html 50states-tracker/*.css 50states-tracker/*.js _site/50states-tracker/
-          cp -r 50states-tracker/collected-us-marathon.csv _site/50states-tracker/
           mkdir -p _site/pace-calculator
           cp -r pace-calculator/*.html pace-calculator/*.css pace-calculator/*.js _site/pace-calculator/
           mkdir -p _site/race-calendar

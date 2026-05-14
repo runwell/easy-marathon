@@ -34,7 +34,7 @@ async function init() {
 async function loadMarathonOptions() {
   try {
     const response = await fetch(
-      'https://raw.githubusercontent.com/artcmd/easy-marathon/main/data/collected-us-marathon.csv',
+      'https://raw.githubusercontent.com/runwell/data-only/main/data/collected-us-marathon.csv',
     );
 
     // Check if the request was successful

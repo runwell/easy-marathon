@@ -1,6 +1,6 @@
 // World Athletics Records - Data fetching and display
 
-const JSON_URL = 'https://raw.githubusercontent.com/artcmd/easy-marathon/main/data/records.json';
+const JSON_URL = 'https://raw.githubusercontent.com/runwell/data-only/main/data/records.json';
 
 let recordsData = null;
 let currentGender = 'men';
