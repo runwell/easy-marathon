@@ -1,15 +1,17 @@
 {
   "devDependencies": {
     "husky": "^9.1.7",
-    "lint-staged": "^16.3.3",
-    "prettier": "^3.8.1"
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3"
   },
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown"
   },
   "lint-staged": {
-    "**/*.{js,ts,jsx,tsx,json,css,md,html}": [
-      "prettier --write"
+    "{*,.*}": [
+      "prettier --write --ignore-unknown"
     ]
   }
 }

@@ -9,14 +9,14 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: "workers"
-  cancel-in-progress: true  # Cancel older deployments if new one starts
+  group: 'workers'
+  cancel-in-progress: true # Cancel older deployments if new one starts
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     name: Deploy Workers
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4

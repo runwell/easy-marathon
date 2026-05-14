@@ -1,6 +1,6 @@
 <div align="center">
   <h1>🏃 Easy Marathon</h1>
-  <p>A lightweight, comprehensive framework for marathon runners to plan, manage, and track their training and racing goals.</p>
+  <p>A lightweight framework for marathon runners to plan, manage, and track their training and racing goals.</p>
 
   <p>
     <a href="https://runwell.github.io/easy-marathon"><strong>View Live Demo</strong></a>
@@ -53,7 +53,7 @@ To run these tools locally and start contributing or modifying the framework for
 ### Prerequisites
 
 - Node.js (v20 or higher recommended)
-- Python 3.x (optional, for running data scraping scripts)
+- Python 3.x (required for running data scraping scripts)
 
 ### Installation
 
@@ -95,7 +95,6 @@ The modern iteration of Easy Marathon operates on a hybrid architecture:
 - **Frontend:** Static files (HTML/CSS/JS) hosted on **GitHub Pages**, providing a fast, globally distributed UI without heavy framing.
 - **Backend (Optional/Multi-User):**
   - Serverless functions powered by **Cloudflare Workers** (see the `/workers` directory).
-  - Designed with the capability to integrate with backend services like **Supabase** for user authentication and synchronized data storage.
 
 ---
 
